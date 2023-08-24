@@ -35,21 +35,6 @@ contract MessageOrdering {
 
 }
 
-interface OptimismDaiBridgeLike {
-    function depositERC20To(address, address, address, uint256, uint32, bytes calldata) external;
-    function withdrawTo(address, address, uint256, uint32, bytes calldata) external;
-    function l2Token() external view returns (address);
-    function l2DAITokenBridge() external view returns (address);
-}
-
-interface ArbitrumDaiBridgeLike {
-    function l1Dai() external view returns (address);
-    function outboundTransfer(address, address, uint256, uint256, uint256, bytes calldata) external payable;
-    function outboundTransfer(address, address, uint256, bytes calldata) external;
-    function l2Dai() external view returns (address);
-    function l2Counterpart() external view returns (address);
-}
-
 contract IntegrationTest is Test {
 
     Domain mainnet;
