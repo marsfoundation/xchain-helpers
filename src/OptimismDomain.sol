@@ -54,6 +54,10 @@ contract OptimismDomain is BridgedDomain {
             L1_MESSENGER = MessengerLike(0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1);
         } else if (name == keccak256("optimism_goerli")) {
             L1_MESSENGER = MessengerLike(0x5086d1eEF304eb5284A0f6720f79403b4e9bE294);
+        } else if (name == keccak256("base")) {
+            L1_MESSENGER = MessengerLike(0x866E82a600A1414e583f7F13623F1aC5d58b0Afa);
+        } else if (name == keccak256("base_goerli")) {
+            L1_MESSENGER = MessengerLike(0x8e5693140eA606bcEB98761d9beB1BC87383706D);
         } else {
             revert("Unsupported chain");
         }
