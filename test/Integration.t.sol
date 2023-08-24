@@ -29,6 +29,10 @@ contract MessageOrdering {
         messages.push(messageId);
     }
 
+    function length() public view returns (uint256) {
+        return messages.length;
+    }
+
 }
 
 interface OptimismDaiBridgeLike {
@@ -113,6 +117,8 @@ contract IntegrationTest is Test {
             100000
         );
 
+        assertEq(moOptimism.length(), 0);
+
         // Do not relay right away
         host.selectFork();
 
@@ -128,13 +134,17 @@ contract IntegrationTest is Test {
             100000
         );
 
+        assertEq(moHost.length(), 0);
+
         optimism.relayFromHost(true);
 
+        assertEq(moOptimism.length(), 2);
         assertEq(moOptimism.messages(0), 1);
         assertEq(moOptimism.messages(1), 2);
 
         optimism.relayToHost(true);
 
+        assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
     }
@@ -159,6 +169,8 @@ contract IntegrationTest is Test {
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4)
         );
+
+        assertEq(moArbitrum.length(), 0);
 
         // Do not relay right away
         host.selectFork();
@@ -185,13 +197,17 @@ contract IntegrationTest is Test {
             abi.encodeWithSelector(MessageOrdering.push.selector, 2)
         );
 
+        assertEq(moHost.length(), 0);
+
         arbitrum.relayFromHost(true);
 
+        assertEq(moArbitrum.length(), 2);
         assertEq(moArbitrum.messages(0), 1);
         assertEq(moArbitrum.messages(1), 2);
 
         arbitrum.relayToHost(true);
 
+        assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
     }
