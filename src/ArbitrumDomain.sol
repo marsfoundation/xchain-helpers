@@ -15,11 +15,11 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity >=0.8.0;
 
-import "forge-std/Vm.sol";
-
-import { RecordedLogs } from "./RecordedLogs.sol";
-import { Domain, BridgedDomain } from "./BridgedDomain.sol";
+import { Vm } from "forge-std/Vm.sol";
 import { StdChains } from "forge-std/StdChains.sol";
+
+import { Domain, BridgedDomain } from "./BridgedDomain.sol";
+import { RecordedLogs } from "./RecordedLogs.sol";
 
 interface InboxLike {
     function createRetryableTicket(
@@ -58,48 +58,58 @@ contract ArbSysOverride {
 
 contract ArbitrumDomain is BridgedDomain {
 
-    InboxLike public immutable inbox;
-    address public immutable arbSys;
-    BridgeLike public immutable bridge;
+    bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
+    bytes32 private constant SEND_TO_L1_TOPIC = keccak256("SendTxToL1(address,address,bytes)");
+
+    address public constant ARB_SYS = 0x0000000000000000000000000000000000000064;
+    InboxLike public INBOX;
+    BridgeLike public immutable BRIDGE;
 
     address public l2ToL1Sender;
-
-    bytes32 constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
-    bytes32 constant SEND_TO_L1_TOPIC = keccak256("SendTxToL1(address,address,bytes)");
 
     uint256 internal lastFromHostLogIndex;
     uint256 internal lastToHostLogIndex;
 
-    constructor(string memory _config, StdChains.Chain memory _chain, Domain _hostDomain) Domain(_config, _chain) BridgedDomain(_hostDomain) {
-        inbox = InboxLike(readConfigAddress("inbox"));
-        arbSys = readConfigAddress("arbSys");
-        bridge = BridgeLike(inbox.bridge());
+    constructor(StdChains.Chain memory _chain, Domain _hostDomain) Domain(_chain) BridgedDomain(_hostDomain) {
+        bytes32 name = keccak256(bytes(_chain.chainAlias));
+        if (name == keccak256("arbitrum_one")) {
+            INBOX = InboxLike(0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f);
+        } else if (name == keccak256("arbitrum_one_goerli")) {
+            INBOX = InboxLike(0x6BEbC4925716945D46F0Ec336D5C2564F419682C);
+        } else if (name == keccak256("arbitrum_nova")) {
+            INBOX = InboxLike(0xc4448b71118c9071Bcb9734A0EAc55D18A153949);
+        } else {
+            revert("Unsupported chain");
+        }
+
+        _hostDomain.selectFork();
+        BRIDGE = BridgeLike(INBOX.bridge());
         vm.recordLogs();
 
         // Make this contract a valid outbox
-        address _rollup = bridge.rollup();
+        address _rollup = BRIDGE.rollup();
         vm.store(
-            address(bridge),
+            address(BRIDGE),
             bytes32(uint256(8)),
             bytes32(uint256(uint160(address(this))))
         );
-        bridge.setOutbox(address(this), true);
+        BRIDGE.setOutbox(address(this), true);
         vm.store(
-            address(bridge),
+            address(BRIDGE),
             bytes32(uint256(8)),
             bytes32(uint256(uint160(_rollup)))
         );
 
         // Need to replace ArbSys contract with custom code to make it compatible with revm
-        uint256 fork = vm.activeFork();
         selectFork();
         bytes memory bytecode = vm.getCode("ArbitrumDomain.sol:ArbSysOverride");
         address deployed;
         assembly {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
         }
-        vm.etch(arbSys, deployed.code);
-        vm.selectFork(fork);
+        vm.etch(ARB_SYS, deployed.code);
+        
+        _hostDomain.selectFork();
     }
 
     function parseData(bytes memory orig) private pure returns (address target, bytes memory message) {
@@ -156,7 +166,7 @@ contract ArbitrumDomain is BridgedDomain {
             if (log.topics[0] == SEND_TO_L1_TOPIC) {
                 (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
                 l2ToL1Sender = sender;
-                (bool success, bytes memory response) = bridge.executeCall(target, 0, message);
+                (bool success, bytes memory response) = BRIDGE.executeCall(target, 0, message);
                 if (!success) {
                     string memory rmessage;
                     assembly {

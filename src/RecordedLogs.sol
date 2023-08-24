@@ -18,11 +18,12 @@ pragma solidity >=0.8.0;
 import { Vm } from "forge-std/Vm.sol";
 
 library RecordedLogs {
+
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     function getLogs() internal returns (Vm.Log[] memory) {
         string memory _logs = vm.serializeUint("RECORDED_LOGS", "a", 0); // this is the only way to get the logs from the memory object
-        uint256 count = keccak256(_logs) == keccak256('{"a":0}') ? 0 : abi.decode(vm.parseJson(_logs, ".count"), (uint256));
+        uint256 count = keccak256(bytes(_logs)) == keccak256('{"a":0}') ? 0 : abi.decode(vm.parseJson(_logs, ".count"), (uint256));
 
         Vm.Log[] memory newLogs = vm.getRecordedLogs();
         Vm.Log[] memory logs = new Vm.Log[](count + newLogs.length);
@@ -43,4 +44,5 @@ library RecordedLogs {
 
         return logs;
     }
+    
 }

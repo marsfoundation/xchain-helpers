@@ -15,23 +15,17 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 pragma solidity >=0.8.0;
 
-import { stdJson } from "forge-std/StdJson.sol";
 import { StdChains } from "forge-std/StdChains.sol";
 import { Vm } from "forge-std/Vm.sol";
 
 contract Domain {
 
-    using stdJson for string;
-
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    string public config;
     StdChains.Chain private _details;
-    DssInstance private _dss;
     uint256 public forkId;
 
-    constructor(string memory _config, StdChains.Chain memory _chain) {
-        config = _config;
+    constructor(StdChains.Chain memory _chain) {
         _details = _chain;
         forkId = vm.createFork(_chain.rpcUrl);
         vm.makePersistent(address(this));

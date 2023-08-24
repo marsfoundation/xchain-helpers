@@ -16,9 +16,10 @@
 pragma solidity >=0.8.0;
 
 import { Vm } from "forge-std/Vm.sol";
-import { RecordedLogs } from "./RecordedLogs.sol";
-import { Domain, BridgedDomain } from "./BridgedDomain.sol";
 import { StdChains } from "forge-std/StdChains.sol";
+
+import { Domain, BridgedDomain } from "./BridgedDomain.sol";
+import { RecordedLogs } from "./RecordedLogs.sol";
 
 interface MessengerLike {
     function sendMessage(
@@ -38,41 +39,44 @@ interface MessengerLike {
 
 contract OptimismDomain is BridgedDomain {
 
-    MessengerLike public immutable l1Messenger;
-    MessengerLike public immutable l2Messenger;
+    bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("SentMessage(address,address,bytes,uint256,uint256)");
+    uint160 private constant OFFSET = uint160(0x1111000000000000000000000000000000001111);
 
-    bytes32 constant SENT_MESSAGE_TOPIC = keccak256("SentMessage(address,address,bytes,uint256,uint256)");
-    uint160 constant OFFSET = uint160(0x1111000000000000000000000000000000001111);
+    MessengerLike public L1_MESSENGER;
+    MessengerLike public constant L2_MESSENGER = MessengerLike(0x4200000000000000000000000000000000000007);
 
     uint256 internal lastFromHostLogIndex;
     uint256 internal lastToHostLogIndex;
 
-    constructor(string memory _config, StdChains.Chain memory _chain, Domain _hostDomain) Domain(_config, _chain) BridgedDomain(_hostDomain) {
-        l1Messenger = MessengerLike(readConfigAddress("l1Messenger"));
-        l2Messenger = MessengerLike(readConfigAddress("l2Messenger"));
-        vm.recordLogs();
-    }
+    constructor(StdChains.Chain memory _chain, Domain _hostDomain) Domain(_chain) BridgedDomain(_hostDomain) {
+        bytes32 name = keccak256(bytes(_chain.chainAlias));
+        if (name == keccak256("optimism")) {
+            L1_MESSENGER = MessengerLike(0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1);
+        } else if (name == keccak256("optimism_goerli")) {
+            L1_MESSENGER = MessengerLike(0x5086d1eEF304eb5284A0f6720f79403b4e9bE294);
+        } else {
+            revert("Unsupported chain");
+        }
 
-    function isGoerli() private view returns (bool) {
-        return keccak256(bytes(details().chainAlias)) == keccak256(bytes("optimism_goerli"));
+        vm.recordLogs();
     }
 
     function relayFromHost(bool switchToGuest) external override {
         selectFork();
         address malias;
         unchecked {
-            malias = address(uint160(address(l1Messenger)) + OFFSET);
+            malias = address(uint160(address(L1_MESSENGER)) + OFFSET);
         }
 
         // Read all L1 -> L2 messages and relay them under Optimism fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
             Vm.Log memory log = logs[lastFromHostLogIndex];
-            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(l1Messenger)) {
+            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(L1_MESSENGER)) {
                 address target = address(uint160(uint256(log.topics[1])));
                 (address sender, bytes memory message, uint256 nonce, uint256 gasLimit) = abi.decode(log.data, (address, bytes, uint256, uint256));
                 vm.prank(malias);
-                l2Messenger.relayMessage(nonce, sender, target, 0, gasLimit, message);
+                L2_MESSENGER.relayMessage(nonce, sender, target, 0, gasLimit, message);
             }
         }
 
@@ -89,20 +93,20 @@ contract OptimismDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
             Vm.Log memory log = logs[lastToHostLogIndex];
-            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(l2Messenger)) {
+            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(L2_MESSENGER)) {
                 address target = address(uint160(uint256(log.topics[1])));
                 (address sender, bytes memory message,,) = abi.decode(log.data, (address, bytes, uint256, uint256));
                 // Set xDomainMessageSender
                 vm.store(
-                    address(l1Messenger),
+                    address(L1_MESSENGER),
                     bytes32(uint256(204)),
                     bytes32(uint256(uint160(sender)))
                 );
-                vm.startPrank(address(l1Messenger));
+                vm.startPrank(address(L1_MESSENGER));
                 (bool success, bytes memory response) = target.call(message);
                 vm.stopPrank();
                 vm.store(
-                    address(l1Messenger),
+                    address(L1_MESSENGER),
                     bytes32(uint256(204)),
                     bytes32(uint256(0))
                 );
