@@ -59,7 +59,7 @@ contract ArbSysOverride {
 contract ArbitrumDomain is BridgedDomain {
 
     bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
-    bytes32 private constant SEND_TO_L1_TOPIC = keccak256("SendTxToL1(address,address,bytes)");
+    bytes32 private constant SEND_TO_L1_TOPIC        = keccak256("SendTxToL1(address,address,bytes)");
 
     address public constant ARB_SYS = 0x0000000000000000000000000000000000000064;
     InboxLike public INBOX;
