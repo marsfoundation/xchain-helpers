@@ -252,9 +252,9 @@ contract IntegrationTest is Test {
 
         gnosis.relayToHost(true);
 
-        // assertEq(moHost.length(), 2);
-        // assertEq(moHost.messages(0), 3);
-        // assertEq(moHost.messages(1), 4);
+        assertEq(moHost.length(), 2);
+        assertEq(moHost.messages(0), 3);
+        assertEq(moHost.messages(1), 4);
 
     }
 }
