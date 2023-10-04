@@ -27,10 +27,10 @@ interface IValidatorContract {
 contract GnosisDomain is BridgedDomain {
 
     bytes32 private constant USER_REQUEST_FOR_AFFIRMATION_TOPIC = keccak256("UserRequestForAffirmation(bytes32,bytes)");
-    bytes32 private constant USER_REQUEST_FOR_SIGNATURE_TOPIC = keccak256("UserRequestForSignature(bytes32,bytes)");
+    bytes32 private constant USER_REQUEST_FOR_SIGNATURE_TOPIC   = keccak256("UserRequestForSignature(bytes32,bytes)");
 
-    IForeignAMB public immutable        L1_AMB_CROSS_DOMAIN_MESSENGER;
-    IHomeAMB public immutable           L2_AMB_CROSS_DOMAIN_MESSENGER;
+    IForeignAMB public immutable L1_AMB_CROSS_DOMAIN_MESSENGER;
+    IHomeAMB public immutable    L2_AMB_CROSS_DOMAIN_MESSENGER;
 
     uint256 internal lastFromHostLogIndex;
     uint256 internal lastToHostLogIndex;
@@ -49,9 +49,10 @@ contract GnosisDomain is BridgedDomain {
 
         hostDomain.selectFork();
 
-        IValidatorContract L1ValidatorContract = IValidatorContract(L1_AMB_CROSS_DOMAIN_MESSENGER.validatorContract());
+        // Set minimum required signatures on L1 to 0
+        IValidatorContract validatorContract = IValidatorContract(L1_AMB_CROSS_DOMAIN_MESSENGER.validatorContract());
         vm.store(
-            address(L1ValidatorContract),
+            address(validatorContract),
             0x8a247e09a5673bd4d93a4e76d8fb9553523aa0d77f51f3d576e7421f5295b9bc,
             0
         );
@@ -69,9 +70,9 @@ contract GnosisDomain is BridgedDomain {
                 log.topics[0] == USER_REQUEST_FOR_AFFIRMATION_TOPIC
                 && log.emitter == address(L1_AMB_CROSS_DOMAIN_MESSENGER)
             ) {
-                IValidatorContract L2ValidatorContract = IValidatorContract(L2_AMB_CROSS_DOMAIN_MESSENGER.validatorContract());
-                address[] memory validators = L2ValidatorContract.validatorList();
-                uint256 requiredSignatures = L2ValidatorContract.requiredSignatures();
+                IValidatorContract validatorContract = IValidatorContract(L2_AMB_CROSS_DOMAIN_MESSENGER.validatorContract());
+                address[] memory validators = validatorContract.validatorList();
+                uint256 requiredSignatures = validatorContract.requiredSignatures();
                 bytes memory messageToRelay = removeFirst64Bytes(log.data);
                 for (uint256 i = 0; i < requiredSignatures; i++) {
                     vm.prank(validators[i]);
