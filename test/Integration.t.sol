@@ -84,6 +84,12 @@ contract IntegrationTest is Test {
         checkGnosisStyle(new GnosisDomain(getChain('gnosis_chain'), mainnet));
     }
 
+    function test_chiado() public {
+        setChain("chiado", ChainData("Chiado", 10200, "https://rpc.chiadochain.net"));
+
+        checkGnosisStyle(new GnosisDomain(getChain('chiado'), goerli));
+    }
+
     function checkOptimismStyle(OptimismDomain optimism) public {
         Domain host = optimism.hostDomain();
 

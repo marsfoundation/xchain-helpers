@@ -40,6 +40,9 @@ contract GnosisDomain is BridgedDomain {
         if (name == keccak256("gnosis_chain")) {
             L1_AMB_CROSS_DOMAIN_MESSENGER = IForeignAMB(0x4C36d2919e407f0Cc2Ee3c993ccF8ac26d9CE64e);
             L2_AMB_CROSS_DOMAIN_MESSENGER = IHomeAMB(0x75Df5AF045d91108662D8080fD1FEFAd6aA0bb59);
+        } else if (name == keccak256("chiado")) {
+            L1_AMB_CROSS_DOMAIN_MESSENGER = IForeignAMB(0x87A19d769D875964E9Cd41dDBfc397B2543764E6);
+            L2_AMB_CROSS_DOMAIN_MESSENGER = IHomeAMB(0x99Ca51a3534785ED619f46A79C7Ad65Fa8d85e7a);
         } else {
             revert("Unsupported chain");
         }
