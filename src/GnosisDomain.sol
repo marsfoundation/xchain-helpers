@@ -61,7 +61,7 @@ contract GnosisDomain is BridgedDomain {
     }
 
     function relayFromHost(bool switchToGuest) external override {
-        selectFork();
+        selectFork(); // switch to Gnosis domain
 
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
@@ -113,4 +113,5 @@ contract GnosisDomain is BridgedDomain {
         }
         return returnValue;
     }
+
 }
