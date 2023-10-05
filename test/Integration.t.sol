@@ -20,6 +20,7 @@ import "forge-std/Test.sol";
 import { Domain } from "../src/Domain.sol";
 import { OptimismDomain } from "../src/OptimismDomain.sol";
 import { ArbitrumDomain, ArbSysOverride } from "../src/ArbitrumDomain.sol";
+import { GnosisDomain } from "../src/GnosisDomain.sol";
 import { XChainForwarders } from "../src/XChainForwarders.sol";
 
 contract MessageOrdering {
@@ -72,6 +73,16 @@ contract IntegrationTest is Test {
 
     function test_arbitrumNova() public {
         checkArbitrumStyle(new ArbitrumDomain(getChain("arbitrum_nova"), mainnet));
+    }
+
+    function test_gnosisChain() public {
+        checkGnosisStyle(new GnosisDomain(getChain('gnosis_chain'), mainnet));
+    }
+
+    function test_chiado() public {
+        setChain("chiado", ChainData("Chiado", 10200, "https://rpc.chiadochain.net"));
+
+        checkGnosisStyle(new GnosisDomain(getChain('chiado'), goerli));
     }
 
     function checkOptimismStyle(OptimismDomain optimism) public {
@@ -186,4 +197,61 @@ contract IntegrationTest is Test {
         assertEq(moHost.messages(1), 4);
     }
 
+    function checkGnosisStyle(GnosisDomain gnosis) public {
+        Domain host = gnosis.hostDomain();
+
+        host.selectFork();
+
+        MessageOrdering moHost = new MessageOrdering();
+
+        gnosis.selectFork();
+
+        MessageOrdering moGnosis = new MessageOrdering();
+
+        // Queue up some L2 -> L1 messages
+        gnosis.L2_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
+            address(moHost),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 3),
+            100000
+        );
+        gnosis.L2_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
+            address(moHost),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 4),
+            100000
+        );
+
+        assertEq(moGnosis.length(), 0);
+
+        // Do not relay right away
+        host.selectFork();
+
+        // Queue up two more L1 -> L2 messages
+        XChainForwarders.sendMessageGnosisChain(
+            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
+            address(moGnosis),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 1),
+            100000
+        );
+        XChainForwarders.sendMessageGnosisChain(
+            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
+            address(moGnosis),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 2),
+            100000
+        );
+
+        assertEq(moHost.length(), 0);
+
+        gnosis.relayFromHost(true);
+
+        assertEq(moGnosis.length(), 2);
+        assertEq(moGnosis.messages(0), 1);
+        assertEq(moGnosis.messages(1), 2);
+
+        gnosis.relayToHost(true);
+
+        assertEq(moHost.length(), 2);
+        assertEq(moHost.messages(0), 3);
+        assertEq(moHost.messages(1), 4);
+
+    }
 }
