@@ -54,16 +54,10 @@ contract IntegrationTest is Test {
     }
 
     function test_base() public {
-        // Can remove this when https://github.com/foundry-rs/forge-std/pull/437 is merged
-        setChain("base", ChainData("Base", 8453, "https://mainnet.base.org"));
-
         checkOptimismStyle(new OptimismDomain(getChain("base"), mainnet));
     }
 
     function test_baseGoerli() public {
-        // Can remove this when https://github.com/foundry-rs/forge-std/pull/437 is merged
-        setChain("base_goerli", ChainData("Base Goerli", 84531, "https://goerli.base.org"));
-
         checkOptimismStyle(new OptimismDomain(getChain("base_goerli"), goerli));
     }
 
