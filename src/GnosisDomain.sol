@@ -29,8 +29,8 @@ contract GnosisDomain is BridgedDomain {
     bytes32 private constant USER_REQUEST_FOR_AFFIRMATION_TOPIC = keccak256("UserRequestForAffirmation(bytes32,bytes)");
     bytes32 private constant USER_REQUEST_FOR_SIGNATURE_TOPIC   = keccak256("UserRequestForSignature(bytes32,bytes)");
 
-    IForeignAMB public immutable L1_AMB_CROSS_DOMAIN_MESSENGER;
-    IHomeAMB public immutable    L2_AMB_CROSS_DOMAIN_MESSENGER;
+    IForeignAMB public L1_AMB_CROSS_DOMAIN_MESSENGER;
+    IHomeAMB public    L2_AMB_CROSS_DOMAIN_MESSENGER;
 
     uint256 internal lastFromHostLogIndex;
     uint256 internal lastToHostLogIndex;
