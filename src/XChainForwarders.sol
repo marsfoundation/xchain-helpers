@@ -19,7 +19,7 @@ interface ICrossDomainArbitrum {
     function calculateRetryableSubmissionFee(uint256 dataLength, uint256 baseFee) external view returns (uint256);
 }
 
-interface ICrossDomainGnosisChain {
+interface ICrossDomainGnosis {
     function requireToPassMessage(address _contract, bytes memory _data, uint256 _gas) external returns (bytes32);
 }
 
@@ -45,26 +45,13 @@ library XChainForwarders {
         );
     }
 
-    function sendMessageOptimism(
+    function sendMessageOptimismMainnet(
         address target,
         bytes memory message,
         uint256 gasLimit
     ) internal {
         sendMessageOptimism(
             0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1,
-            target,
-            message,
-            uint32(gasLimit)
-        );
-    }
-
-    function sendMessageOptimismGoerli(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageOptimism(
-            0x5086d1eEF304eb5284A0f6720f79403b4e9bE294,
             target,
             message,
             uint32(gasLimit)
@@ -78,19 +65,6 @@ library XChainForwarders {
     ) internal {
         sendMessageOptimism(
             0x866E82a600A1414e583f7F13623F1aC5d58b0Afa,
-            target,
-            message,
-            uint32(gasLimit)
-        );
-    }
-
-    function sendMessageBaseGoerli(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageOptimism(
-            0x8e5693140eA606bcEB98761d9beB1BC87383706D,
             target,
             message,
             uint32(gasLimit)
@@ -137,19 +111,6 @@ library XChainForwarders {
         );
     }
 
-    function sendMessageArbitrumOneGoerli(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageArbitrum(
-            0x6BEbC4925716945D46F0Ec336D5C2564F419682C,
-            target,
-            message,
-            gasLimit
-        );
-    }
-
     function sendMessageArbitrumNova(
         address target,
         bytes memory message,
@@ -171,7 +132,7 @@ library XChainForwarders {
         bytes memory message,
         uint256 gasLimit
     ) internal {
-        ICrossDomainGnosisChain(l1CrossDomain).requireToPassMessage(
+        ICrossDomainGnosis(l1CrossDomain).requireToPassMessage(
             target,
             message,
             gasLimit
@@ -185,19 +146,6 @@ library XChainForwarders {
     ) internal {
         sendMessageGnosis(
             0x4C36d2919e407f0Cc2Ee3c993ccF8ac26d9CE64e,
-            target,
-            message,
-            gasLimit
-        );
-    }
-    
-    function sendMessageGnosisGoerli(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageGnosis(
-            0x87A19d769D875964E9Cd41dDBfc397B2543764E6,
             target,
             message,
             gasLimit
