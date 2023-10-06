@@ -26,7 +26,7 @@ interface ICrossDomainGnosis {
 /**
  * @title XChainForwarders
  * @notice Helper functions to abstract over L1 -> L2 message passing.
- * @dev General structure is sendMessageXXX(target, message, gasLimit) where XXX is the remote domain name (IE Optimism, Arbitrum, Base, etc).
+ * @dev General structure is sendMessageXXX(target, message, gasLimit) where XXX is the remote domain name (IE OptimismMainnet, ArbitrumOne, Base, etc).
  */
 library XChainForwarders {
 
