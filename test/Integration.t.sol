@@ -226,13 +226,13 @@ contract IntegrationTest is Test {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
-        XChainForwarders.sendMessageGnosisChain(
+        XChainForwarders.sendMessageGnosis(
             address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
-        XChainForwarders.sendMessageGnosisChain(
+        XChainForwarders.sendMessageGnosis(
             address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),

@@ -163,9 +163,9 @@ library XChainForwarders {
         );
     }
 
-    /// ================================ Gnosis Chain ================================
+    /// ================================ Gnosis ================================
 
-    function sendMessageGnosisChain(
+    function sendMessageGnosis(
         address l1CrossDomain,
         address target,
         bytes memory message,
@@ -178,12 +178,12 @@ library XChainForwarders {
         );
     }
 
-    function sendMessageGnosisChain(
+    function sendMessageGnosis(
         address target,
         bytes memory message,
         uint256 gasLimit
     ) internal {
-        sendMessageGnosisChain(
+        sendMessageGnosis(
             0x4C36d2919e407f0Cc2Ee3c993ccF8ac26d9CE64e,
             target,
             message,
@@ -191,12 +191,12 @@ library XChainForwarders {
         );
     }
     
-    function sendMessageGnosisChainGoerli(
+    function sendMessageGnosisGoerli(
         address target,
         bytes memory message,
         uint256 gasLimit
     ) internal {
-        sendMessageGnosisChain(
+        sendMessageGnosis(
             0x87A19d769D875964E9Cd41dDBfc397B2543764E6,
             target,
             message,
