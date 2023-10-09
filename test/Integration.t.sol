@@ -21,6 +21,7 @@ import { Domain } from "../src/Domain.sol";
 import { OptimismDomain } from "../src/OptimismDomain.sol";
 import { ArbitrumDomain, ArbSysOverride } from "../src/ArbitrumDomain.sol";
 import { GnosisDomain } from "../src/GnosisDomain.sol";
+import { XChainForwarders } from "../src/XChainForwarders.sol";
 
 contract MessageOrdering {
 
@@ -113,12 +114,14 @@ contract IntegrationTest is Test {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
-        optimism.L1_MESSENGER().sendMessage(
+        XChainForwarders.sendMessageOptimism(
+            address(optimism.L1_MESSENGER()),
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
-        optimism.L1_MESSENGER().sendMessage(
+        XChainForwarders.sendMessageOptimism(
+            address(optimism.L1_MESSENGER()),
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
@@ -166,25 +169,17 @@ contract IntegrationTest is Test {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
-        arbitrum.INBOX().createRetryableTicket{value: 1 ether}(
+        XChainForwarders.sendMessageArbitrum(
+            address(arbitrum.INBOX()),
             address(moArbitrum),
-            0,
-            1 ether,
-            msg.sender,
-            msg.sender,
-            100000,
-            0,
-            abi.encodeWithSelector(MessageOrdering.push.selector, 1)
+            abi.encodeWithSelector(MessageOrdering.push.selector, 1),
+            100000
         );
-        arbitrum.INBOX().createRetryableTicket{value: 1 ether}(
+        XChainForwarders.sendMessageArbitrum(
+            address(arbitrum.INBOX()),
             address(moArbitrum),
-            0,
-            1 ether,
-            msg.sender,
-            msg.sender,
-            100000,
-            0,
-            abi.encodeWithSelector(MessageOrdering.push.selector, 2)
+            abi.encodeWithSelector(MessageOrdering.push.selector, 2),
+            100000
         );
 
         assertEq(moHost.length(), 0);
@@ -231,12 +226,14 @@ contract IntegrationTest is Test {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
-        gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
+        XChainForwarders.sendMessageGnosis(
+            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
-        gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
+        XChainForwarders.sendMessageGnosis(
+            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
