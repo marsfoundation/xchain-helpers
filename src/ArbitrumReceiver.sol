@@ -1,10 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
-interface ICrossDomain {
-    function xDomainMessageSender() external view returns (address);
-}
-
 /**
  * @title ArbitrumReceiver
  * @notice Receive messages to an Arbitrum-style chain.
@@ -19,9 +15,13 @@ abstract contract ArbitrumReceiver {
         l1Authority = _l1Authority;
     }
 
+    function _getL1MessageSender() internal view returns (address) {
+        return address(uint160(msg.sender) - uint160(0x1111000000000000000000000000000000001111));
+    }
+
     function _onlyCrossChainMessage() internal view {
         unchecked {
-            require(address(uint160(msg.sender) - uint160(0x1111000000000000000000000000000000001111)) == l1Authority);
+            require(_getL1MessageSender() == l1Authority);
         }
     }
 
