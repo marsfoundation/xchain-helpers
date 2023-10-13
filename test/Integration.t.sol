@@ -17,22 +17,61 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
 
-import { Domain } from "../src/Domain.sol";
-import { OptimismDomain } from "../src/OptimismDomain.sol";
-import { ArbitrumDomain, ArbSysOverride } from "../src/ArbitrumDomain.sol";
-import { GnosisDomain } from "../src/GnosisDomain.sol";
+import { Domain } from "../src/testing/Domain.sol";
+import { OptimismDomain } from "../src/testing/OptimismDomain.sol";
+import { ArbitrumDomain, ArbSysOverride } from "../src/testing/ArbitrumDomain.sol";
+import { GnosisDomain } from "../src/testing/GnosisDomain.sol";
 import { XChainForwarders } from "../src/XChainForwarders.sol";
+import { ArbitrumReceiver } from "../src/ArbitrumReceiver.sol";
+import { GnosisReceiver } from "../src/GnosisReceiver.sol";
+import { OptimismReceiver } from "../src/OptimismReceiver.sol";
 
-contract MessageOrdering {
+abstract contract MessageOrdering {
 
     uint256[] public messages;
 
-    function push(uint256 messageId) public {
-        messages.push(messageId);
-    }
+    function push(uint256 messageId) external virtual;
 
     function length() public view returns (uint256) {
         return messages.length;
+    }
+
+}
+
+contract MessageOrderingNoAuth is MessageOrdering {
+
+    function push(uint256 messageId) external override {
+        messages.push(messageId);
+    }
+
+}
+
+contract MessageOrderingArbitrum is MessageOrdering, ArbitrumReceiver {
+
+    constructor(address _l1Authority) ArbitrumReceiver(_l1Authority) {}
+
+    function push(uint256 messageId) external override onlyCrossChainMessage {
+        messages.push(messageId);
+    }
+
+}
+
+contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
+
+    constructor(address _l2CrossDomain, uint256 _chainId, address _l1Authority) GnosisReceiver(_l2CrossDomain, _chainId, _l1Authority) {}
+
+    function push(uint256 messageId) external override onlyCrossChainMessage {
+        messages.push(messageId);
+    }
+
+}
+
+contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
+
+    constructor(address _l1Authority) OptimismReceiver(_l1Authority) {}
+
+    function push(uint256 messageId) external override onlyCrossChainMessage {
+        messages.push(messageId);
     }
 
 }
@@ -76,13 +115,13 @@ contract IntegrationTest is Test {
     }
 
     function test_gnosisChain() public {
-        checkGnosisStyle(new GnosisDomain(getChain('gnosis_chain'), mainnet));
+        checkGnosisStyle(new GnosisDomain(getChain('gnosis_chain'), mainnet), 0x75Df5AF045d91108662D8080fD1FEFAd6aA0bb59);
     }
 
     function test_chiado() public {
         setChain("chiado", ChainData("Chiado", 10200, "https://rpc.chiadochain.net"));
 
-        checkGnosisStyle(new GnosisDomain(getChain('chiado'), goerli));
+        checkGnosisStyle(new GnosisDomain(getChain('chiado'), goerli), 0x99Ca51a3534785ED619f46A79C7Ad65Fa8d85e7a);
     }
 
     function checkOptimismStyle(OptimismDomain optimism) public {
@@ -90,11 +129,11 @@ contract IntegrationTest is Test {
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrdering();
+        MessageOrdering moHost = new MessageOrderingNoAuth();
 
         optimism.selectFork();
 
-        MessageOrdering moOptimism = new MessageOrdering();
+        MessageOrdering moOptimism = new MessageOrderingOptimism(address(this));
 
         // Queue up some L2 -> L1 messages
         optimism.L2_MESSENGER().sendMessage(
@@ -147,11 +186,11 @@ contract IntegrationTest is Test {
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrdering();
+        MessageOrdering moHost = new MessageOrderingNoAuth();
 
         arbitrum.selectFork();
 
-        MessageOrdering moArbitrum = new MessageOrdering();
+        MessageOrdering moArbitrum = new MessageOrderingArbitrum(address(this));
 
         // Queue up some L2 -> L1 messages
         ArbSysOverride(arbitrum.ARB_SYS()).sendTxToL1(
@@ -197,16 +236,17 @@ contract IntegrationTest is Test {
         assertEq(moHost.messages(1), 4);
     }
 
-    function checkGnosisStyle(GnosisDomain gnosis) public {
+    function checkGnosisStyle(GnosisDomain gnosis, address _l2CrossDomain) public {
         Domain host = gnosis.hostDomain();
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrdering();
+        MessageOrdering moHost = new MessageOrderingNoAuth();
+        uint256 _chainId = block.chainid;
 
         gnosis.selectFork();
 
-        MessageOrdering moGnosis = new MessageOrdering();
+        MessageOrdering moGnosis = new MessageOrderingGnosis(_l2CrossDomain, _chainId, address(this));
 
         // Queue up some L2 -> L1 messages
         gnosis.L2_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
@@ -252,6 +292,6 @@ contract IntegrationTest is Test {
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
-
     }
+
 }
