@@ -22,6 +22,7 @@ import { OptimismDomain } from "../src/OptimismDomain.sol";
 import { ArbitrumDomain, ArbSysOverride } from "../src/ArbitrumDomain.sol";
 import { GnosisDomain } from "../src/GnosisDomain.sol";
 import { XChainForwarders } from "../src/XChainForwarders.sol";
+import { ZkEVMDomain } from "../src/ZkEVMDomain.sol";
 
 contract MessageOrdering {
 
@@ -83,6 +84,10 @@ contract IntegrationTest is Test {
         setChain("chiado", ChainData("Chiado", 10200, "https://rpc.chiadochain.net"));
 
         checkGnosisStyle(new GnosisDomain(getChain('chiado'), goerli));
+    }
+
+    function test_zkevm() public {
+        checkZkEVM(new ZkEVMDomain(getChain("zkevm"), mainnet));
     }
 
     function checkOptimismStyle(OptimismDomain optimism) public {
@@ -252,6 +257,10 @@ contract IntegrationTest is Test {
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
+
+    }
+
+    function checkZkEVM(ZkEVMDomain zkEvmDomain) public {
 
     }
 }
