@@ -31,9 +31,9 @@ abstract contract GnosisReceiver {
     }
 
     function _onlyCrossChainMessage() internal view {
-        require(msg.sender == address(l2CrossDomain));
-        require(l2CrossDomain.messageSourceChainId() == chainId);
-        require(_getL1MessageSender() == l1Authority);
+        require(msg.sender == address(l2CrossDomain), "auth");
+        require(l2CrossDomain.messageSourceChainId() == chainId, "auth");
+        require(_getL1MessageSender() == l1Authority, "auth");
     }
 
     modifier onlyCrossChainMessage() {

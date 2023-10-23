@@ -16,13 +16,13 @@ abstract contract ArbitrumReceiver {
     }
 
     function _getL1MessageSender() internal view returns (address) {
-        return address(uint160(msg.sender) - uint160(0x1111000000000000000000000000000000001111));
+        unchecked {
+            return address(uint160(msg.sender) - uint160(0x1111000000000000000000000000000000001111));
+        }
     }
 
     function _onlyCrossChainMessage() internal view {
-        unchecked {
-            require(_getL1MessageSender() == l1Authority);
-        }
+        require(_getL1MessageSender() == l1Authority, "auth");
     }
 
     modifier onlyCrossChainMessage() {
