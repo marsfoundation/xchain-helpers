@@ -24,8 +24,8 @@ contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
 
     constructor(address _l2CrossDomain, uint256 _chainId, address _l1Authority) GnosisReceiver(_l2CrossDomain, _chainId, _l1Authority) {}
 
-    function push(uint256 messageId) external override onlyCrossChainMessage {
-        messages.push(messageId);
+    function push(uint256 messageId) public override onlyCrossChainMessage {
+        super.push(messageId);
     }
 
 }
@@ -47,7 +47,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrderingNoAuth();
+        MessageOrdering moHost = new MessageOrdering();
         uint256 _chainId = block.chainid;
 
         gnosis.selectFork();

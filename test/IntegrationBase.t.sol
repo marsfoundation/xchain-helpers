@@ -20,22 +20,16 @@ import "forge-std/Test.sol";
 import { Domain } from "../src/testing/Domain.sol";
 import { XChainForwarders } from "../src/XChainForwarders.sol";
 
-abstract contract MessageOrdering {
+contract MessageOrdering {
 
     uint256[] public messages;
 
-    function push(uint256 messageId) external virtual;
+    function push(uint256 messageId) public virtual {
+        messages.push(messageId);
+    }
 
     function length() public view returns (uint256) {
         return messages.length;
-    }
-
-}
-
-contract MessageOrderingNoAuth is MessageOrdering {
-
-    function push(uint256 messageId) external override {
-        messages.push(messageId);
     }
 
 }

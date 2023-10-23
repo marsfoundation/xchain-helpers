@@ -24,8 +24,8 @@ contract MessageOrderingArbitrum is MessageOrdering, ArbitrumReceiver {
 
     constructor(address _l1Authority) ArbitrumReceiver(_l1Authority) {}
 
-    function push(uint256 messageId) external override onlyCrossChainMessage {
-        messages.push(messageId);
+    function push(uint256 messageId) public override onlyCrossChainMessage {
+        super.push(messageId);
     }
 
 }
@@ -49,7 +49,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrderingNoAuth();
+        MessageOrdering moHost = new MessageOrdering();
 
         arbitrum.selectFork();
 

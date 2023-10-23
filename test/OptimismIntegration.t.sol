@@ -24,8 +24,8 @@ contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
 
     constructor(address _l1Authority) OptimismReceiver(_l1Authority) {}
 
-    function push(uint256 messageId) external override onlyCrossChainMessage {
-        messages.push(messageId);
+    function push(uint256 messageId) public override onlyCrossChainMessage {
+        super.push(messageId);
     }
 
 }
@@ -53,7 +53,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrderingNoAuth();
+        MessageOrdering moHost = new MessageOrdering();
 
         optimism.selectFork();
 
