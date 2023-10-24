@@ -26,8 +26,8 @@ abstract contract OptimismReceiver {
     }
 
     function _onlyCrossChainMessage() internal view {
-        require(msg.sender == address(l2CrossDomain), "auth");
-        require(_getL1MessageSender() == l1Authority, "auth");
+        require(msg.sender == address(l2CrossDomain), "Receiver/invalid-sender");
+        require(_getL1MessageSender() == l1Authority, "Receiver/invalid-l1Authority");
     }
 
     modifier onlyCrossChainMessage() {

@@ -22,7 +22,7 @@ abstract contract ArbitrumReceiver {
     }
 
     function _onlyCrossChainMessage() internal view {
-        require(_getL1MessageSender() == l1Authority, "auth");
+        require(_getL1MessageSender() == l1Authority, "Receiver/invalid-l1Authority");
     }
 
     modifier onlyCrossChainMessage() {
