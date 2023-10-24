@@ -45,6 +45,9 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
     }
 
     function checkArbitrumStyle(ArbitrumDomain arbitrum) public {
+        deal(l1Authority, 100 ether);
+        deal(notL1Authority, 100 ether);
+
         Domain host = arbitrum.hostDomain();
 
         host.selectFork();
@@ -53,7 +56,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
 
         arbitrum.selectFork();
 
-        MessageOrdering moArbitrum = new MessageOrderingArbitrum(address(this));
+        MessageOrdering moArbitrum = new MessageOrderingArbitrum(l1Authority);
 
         // Queue up some L2 -> L1 messages
         ArbSysOverride(arbitrum.ARB_SYS()).sendTxToL1(
@@ -71,6 +74,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
+        vm.startPrank(l1Authority);
         XChainForwarders.sendMessageArbitrum(
             address(arbitrum.INBOX()),
             address(moArbitrum),
@@ -83,6 +87,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
         );
+        vm.stopPrank();
 
         assertEq(moHost.length(), 0);
 
@@ -97,6 +102,19 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
+
+        // Validate the message receiver failure mode
+        vm.startPrank(notL1Authority);
+        XChainForwarders.sendMessageArbitrum(
+            address(arbitrum.INBOX()),
+            address(moArbitrum),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 999),
+            100000
+        );
+        vm.stopPrank();
+
+        vm.expectRevert("Receiver/invalid-l1Authority");
+        arbitrum.relayFromHost(true);
     }
 
 }

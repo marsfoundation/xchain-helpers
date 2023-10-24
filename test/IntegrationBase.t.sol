@@ -39,6 +39,9 @@ abstract contract IntegrationBaseTest is Test {
     Domain mainnet;
     Domain goerli;
 
+    address l1Authority = makeAddr("l1Authority");
+    address notL1Authority = makeAddr("notL1Authority");
+
     function setUp() public {
         mainnet = new Domain(getChain("mainnet"));
         goerli = new Domain(getChain("goerli"));

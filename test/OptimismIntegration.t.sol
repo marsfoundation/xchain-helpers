@@ -32,6 +32,8 @@ contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
 
 contract OptimismIntegrationTest is IntegrationBaseTest {
 
+    event FailedRelayedMessage(bytes32);
+
     function test_optimism() public {
         checkOptimismStyle(new OptimismDomain(getChain("optimism"), mainnet));
     }
@@ -57,7 +59,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         optimism.selectFork();
 
-        MessageOrdering moOptimism = new MessageOrderingOptimism(address(this));
+        MessageOrdering moOptimism = new MessageOrderingOptimism(l1Authority);
 
         // Queue up some L2 -> L1 messages
         optimism.L2_MESSENGER().sendMessage(
@@ -77,6 +79,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
+        vm.startPrank(l1Authority);
         XChainForwarders.sendMessageOptimism(
             address(optimism.L1_MESSENGER()),
             address(moOptimism),
@@ -89,6 +92,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
         );
+        vm.stopPrank();
 
         assertEq(moHost.length(), 0);
 
@@ -103,6 +107,25 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
+
+        // Validate the message receiver failure modes
+        vm.startPrank(notL1Authority);
+        XChainForwarders.sendMessageOptimism(
+            address(optimism.L1_MESSENGER()),
+            address(moOptimism),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 999),
+            100000
+        );
+        vm.stopPrank();
+
+        // The revert is caught so it doesn't propagate
+        // Just look at the no change to verify it didn't go through
+        optimism.relayFromHost(true);
+        assertEq(moOptimism.length(), 2);   // No change
+
+        optimism.selectFork();
+        vm.expectRevert("Receiver/invalid-sender");
+        moOptimism.push(999);
     }
 
 }

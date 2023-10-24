@@ -52,7 +52,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         gnosis.selectFork();
 
-        MessageOrdering moGnosis = new MessageOrderingGnosis(_l2CrossDomain, _chainId, address(this));
+        MessageOrderingGnosis moGnosis = new MessageOrderingGnosis(_l2CrossDomain, _chainId, l1Authority);
 
         // Queue up some L2 -> L1 messages
         gnosis.L2_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
@@ -72,6 +72,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
         host.selectFork();
 
         // Queue up two more L1 -> L2 messages
+        vm.startPrank(l1Authority);
         XChainForwarders.sendMessageGnosis(
             address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
             address(moGnosis),
@@ -84,6 +85,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
         );
+        vm.stopPrank();
 
         assertEq(moHost.length(), 0);
 
@@ -98,6 +100,30 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
+
+        // Validate the message receiver failure modes
+        vm.startPrank(notL1Authority);
+        XChainForwarders.sendMessageGnosis(
+            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
+            address(moGnosis),
+            abi.encodeWithSelector(MessageOrdering.push.selector, 999),
+            100000
+        );
+        vm.stopPrank();
+
+        // The revert is caught so it doesn't propagate
+        // Just look at the no change to verify it didn't go through
+        gnosis.relayFromHost(true);
+        assertEq(moGnosis.length(), 2);   // No change
+
+        gnosis.selectFork();
+        vm.expectRevert("Receiver/invalid-sender");
+        moGnosis.push(999);
+
+        assertEq(moGnosis.l2CrossDomain().messageSourceChainId(), 0);
+        vm.prank(address(moGnosis.l2CrossDomain()));
+        vm.expectRevert("Receiver/invalid-chainId");
+        moGnosis.push(999);
     }
 
 }
