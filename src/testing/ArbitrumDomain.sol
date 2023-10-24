@@ -139,7 +139,7 @@ contract ArbitrumDomain is BridgedDomain {
                 vm.stopPrank();
                 if (!success) {
                     assembly {
-                        revert(add(response,32),mload(response))
+                        revert(add(response, 32), mload(response))
                     }
                 }
             }
@@ -163,7 +163,7 @@ contract ArbitrumDomain is BridgedDomain {
                 (bool success, bytes memory response) = BRIDGE.executeCall(target, 0, message);
                 if (!success) {
                     assembly {
-                        revert(add(response,32),mload(response))
+                        revert(add(response, 32), mload(response))
                     }
                 }
             }

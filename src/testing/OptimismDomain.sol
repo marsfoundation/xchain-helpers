@@ -116,7 +116,7 @@ contract OptimismDomain is BridgedDomain {
                 );
                 if (!success) {
                     assembly {
-                        revert(add(response,32),mload(response))
+                        revert(add(response, 32), mload(response))
                     }
                 }
             }
