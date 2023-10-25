@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import {IZkEvmBridgeLike} from "./ZkEVMDomain.sol";
+
 interface ICrossDomainOptimism {
     function sendMessage(address _target, bytes calldata _message, uint32 _gasLimit) external;
 }
@@ -152,4 +154,17 @@ library XChainForwarders {
         );
     }
 
+    function sendMessageZkevm(
+        uint32 destinationNetworkId,
+        address destinationAddress,
+        bool forceUpdateGlobalExitRoot,
+        bytes memory metadata
+    ) internal {
+        IZkEvmBridgeLike(0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe).bridgeMessage(
+            destinationNetworkId,
+            destinationAddress,
+            forceUpdateGlobalExitRoot,
+            metadata
+        );
+    }
 }

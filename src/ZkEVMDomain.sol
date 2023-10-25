@@ -25,10 +25,20 @@ interface IBridgeMessageReceiver {
     function onMessageReceived(address originAddress, uint32 originNetwork, bytes memory data) external payable;
 }
 
+interface IZkEvmBridgeLike {
+    function bridgeMessage(
+        uint32 destinationNetwork,
+        address destinationAddress,
+        bool forceUpdateGlobalExitRoot,
+        bytes calldata metadata
+    ) external payable;
+}
+
 contract ZkEVMDomain is BridgedDomain {
     error MessageFailed();
 
     address constant ZKEVM_BRIDGE = 0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe;
+    IZkEvmBridgeLike public bridge = IZkEvmBridgeLike(ZKEVM_BRIDGE);
 
     // event BridgeEvent(
     //     uint8 leafType, // type asset = 0, type message = 1
@@ -47,7 +57,7 @@ contract ZkEVMDomain is BridgedDomain {
     uint256 internal lastToHostLogIndex;
 
     constructor(StdChains.Chain memory _chain, Domain _hostDomain) Domain(_chain) BridgedDomain(_hostDomain) {
-        bytes32 name = keccak256(bytes(_chain.chainAlias));
+        // bytes32 name = keccak256(bytes(_chain.chainAlias));
 
         vm.recordLogs();
     }
@@ -59,7 +69,7 @@ contract ZkEVMDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
             Vm.Log memory log = logs[lastFromHostLogIndex];
-            if (_isBridgeMessageEvent(log)) _claimMessage(log);
+            if (_isBridgeMessageEvent(log, true)) _claimMessage(log, true);
         }
 
         if (!switchToGuest) {
@@ -74,7 +84,7 @@ contract ZkEVMDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
             Vm.Log memory log = logs[lastToHostLogIndex];
-            if (_isBridgeMessageEvent(log)) _claimMessage(log);
+            if (_isBridgeMessageEvent(log, false)) _claimMessage(log, false);
         }
 
         if (!switchToHost) {
@@ -82,19 +92,25 @@ contract ZkEVMDomain is BridgedDomain {
         }
     }
 
-    function _isBridgeMessageEvent(Vm.Log memory log) internal pure returns (bool) {
-        (uint8 messageType,,,,,,,) =
+    function _isBridgeMessageEvent(Vm.Log memory log, bool host) internal pure returns (bool) {
+        // early return to prevent abi decode errors
+        if (log.topics[0] != BRIDGE_EVENT_TOPIC) return false;
+
+        (uint8 messageType, uint32 originNetwork,,,,,,) =
             abi.decode(log.data, (uint8, uint32, address, uint32, address, uint256, bytes, uint32));
-        return log.topics[0] == BRIDGE_EVENT_TOPIC && log.emitter == address(ZKEVM_BRIDGE) && messageType == 1;
+        return
+            log.emitter == address(ZKEVM_BRIDGE) && messageType == 1 && (host ? originNetwork == 0 : originNetwork == 1);
     }
 
-    function _claimMessage(Vm.Log memory log) internal {
-        require(_isBridgeMessageEvent(log), "ZkEVMDomain: !bridgeMessage");
+    function _claimMessage(Vm.Log memory log, bool host) internal {
+        require(_isBridgeMessageEvent(log, host), "ZkEVMDomain: !bridgeMessage");
         (
-            uint8 messageType,
+            /* uint8 messageType */
+            ,
             uint32 originNetwork,
             address originAddress,
-            uint32 destinationNetwork,
+            /* uint32 destinationNetwork */
+            ,
             address destinationAddress,
             uint256 msgValue,
             bytes memory metadata,

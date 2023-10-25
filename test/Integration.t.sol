@@ -22,7 +22,7 @@ import { OptimismDomain } from "../src/OptimismDomain.sol";
 import { ArbitrumDomain, ArbSysOverride } from "../src/ArbitrumDomain.sol";
 import { GnosisDomain } from "../src/GnosisDomain.sol";
 import { XChainForwarders } from "../src/XChainForwarders.sol";
-import { ZkEVMDomain } from "../src/ZkEVMDomain.sol";
+import { ZkEVMDomain, IBridgeMessageReceiver } from "../src/ZkEVMDomain.sol";
 
 contract MessageOrdering {
 
@@ -35,7 +35,18 @@ contract MessageOrdering {
     function length() public view returns (uint256) {
         return messages.length;
     }
+}
 
+contract ZkevmMessageOrdering is MessageOrdering, IBridgeMessageReceiver {
+    function onMessageReceived(address /*originAddress*/, uint32 /*originNetwork*/, bytes memory data) external payable {
+        // call the specific method
+        (bool success, bytes memory ret) = address(this).call(data);
+        if (!success) {
+            assembly {
+                revert(add(ret, 0x20), mload(ret))
+            }
+        }
+    }
 }
 
 contract IntegrationTest is Test {
@@ -87,6 +98,8 @@ contract IntegrationTest is Test {
     }
 
     function test_zkevm() public {
+        setChain("zkevm", ChainData("ZkEVM", 1101, "https://zkevm-rpc.com"));
+
         checkZkEVM(new ZkEVMDomain(getChain("zkevm"), mainnet));
     }
 
@@ -260,7 +273,41 @@ contract IntegrationTest is Test {
 
     }
 
-    function checkZkEVM(ZkEVMDomain zkEvmDomain) public {
+    function checkZkEVM(ZkEVMDomain zkevm) public {
+        Domain host = zkevm.hostDomain();
 
+        host.selectFork();
+
+        ZkevmMessageOrdering moHost = new ZkevmMessageOrdering();
+
+        zkevm.selectFork();
+
+        ZkevmMessageOrdering moZkevm = new ZkevmMessageOrdering();
+
+        // Queue up two more L1 -> L2 messages
+        zkevm.bridge().bridgeMessage(0, address(moHost), true, abi.encodeCall(MessageOrdering.push, (3)));
+        zkevm.bridge().bridgeMessage(0, address(moHost), true, abi.encodeCall(MessageOrdering.push, (4)));
+
+        assertEq(moZkevm.length(), 0);
+
+        host.selectFork();
+
+        // Queue up two more L1 -> L2 messages
+        XChainForwarders.sendMessageZkevm(1, address(moZkevm), true, abi.encodeCall(MessageOrdering.push, (1)));
+        XChainForwarders.sendMessageZkevm(1, address(moZkevm), true, abi.encodeCall(MessageOrdering.push, (2)));
+
+        assertEq(moHost.length(), 0);
+
+        zkevm.relayFromHost(true);
+
+        assertEq(moZkevm.length(), 2);
+        assertEq(moZkevm.messages(0), 1);
+        assertEq(moZkevm.messages(1), 2);
+
+        zkevm.relayToHost(true);
+
+        assertEq(moHost.length(), 2);
+        assertEq(moHost.messages(0), 3);
+        assertEq(moHost.messages(1), 4);
     }
 }
