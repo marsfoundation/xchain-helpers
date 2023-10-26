@@ -23,6 +23,15 @@ interface ICrossDomainGnosis {
     function requireToPassMessage(address _contract, bytes memory _data, uint256 _gas) external returns (bytes32);
 }
 
+interface ICrossDomainZkEVM {
+    function bridgeMessage(
+        uint32 destinationNetwork,
+        address destinationAddress,
+        bool forceUpdateGlobalExitRoot,
+        bytes calldata metadata
+    ) external payable;
+}
+
 /**
  * @title XChainForwarders
  * @notice Helper functions to abstract over L1 -> L2 message passing.
@@ -149,6 +158,37 @@ library XChainForwarders {
             target,
             message,
             gasLimit
+        );
+    }
+
+    /// ================================ zkEVM ================================
+
+    function sendMessageZkEVM(
+        address l1CrossDomain,
+        uint32 destinationNetworkId,
+        address destinationAddress,
+        bool forceUpdateGlobalExitRoot,
+        bytes memory metadata
+    ) internal {
+        ICrossDomainZkEVM(l1CrossDomain).bridgeMessage(
+            destinationNetworkId,
+            destinationAddress,
+            forceUpdateGlobalExitRoot,
+            metadata
+        );
+    }
+
+    function sendMessageZkEVM(
+        uint32 destinationNetworkId,
+        address destinationAddress,
+        bool forceUpdateGlobalExitRoot,
+        bytes memory metadata
+    ) internal {
+        ICrossDomainZkEVM(0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe).bridgeMessage(
+            destinationNetworkId,
+            destinationAddress,
+            forceUpdateGlobalExitRoot,
+            metadata
         );
     }
 
