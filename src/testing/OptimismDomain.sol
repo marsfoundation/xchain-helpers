@@ -115,15 +115,9 @@ contract OptimismDomain is BridgedDomain {
                     bytes32(uint256(0))
                 );
                 if (!success) {
-                    string memory rmessage;
                     assembly {
-                        let size := mload(add(response, 0x44))
-                        rmessage := mload(0x40)
-                        mstore(rmessage, size)
-                        mstore(0x40, add(rmessage, and(add(add(size, 0x20), 0x1f), not(0x1f))))
-                        returndatacopy(add(rmessage, 0x20), 0x44, size)
+                        revert(add(response, 32), mload(response))
                     }
-                    revert(rmessage);
                 }
             }
         }
