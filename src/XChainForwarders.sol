@@ -179,16 +179,14 @@ library XChainForwarders {
     }
 
     function sendMessageZkEVM(
-        uint32 destinationNetworkId,
         address destinationAddress,
-        bool forceUpdateGlobalExitRoot,
         bytes memory metadata
     ) internal {
         sendMessageZkEVM(
             0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe,
-            destinationNetworkId,
+            1,
             destinationAddress,
-            forceUpdateGlobalExitRoot,
+            true,
             metadata
         );
     }
