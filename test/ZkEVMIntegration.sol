@@ -37,7 +37,7 @@ contract ZkEVMIntegrationTest is IntegrationBaseTest {
 
         ZkevmMessageOrdering moZkevm = new ZkevmMessageOrdering();
 
-        // Queue up two more L1 -> L2 messages
+        // Queue up two more L2 -> L1 messages
         zkevm.L1_MESSENGER().bridgeMessage(0, address(moHost), true, abi.encodeCall(MessageOrdering.push, (3)));
         zkevm.L1_MESSENGER().bridgeMessage(0, address(moHost), true, abi.encodeCall(MessageOrdering.push, (4)));
 
