@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { ArbitrumDomain, ArbSysOverride } from "../src/testing/ArbitrumDomain.sol";
+
 import { ArbitrumReceiver } from "../src/ArbitrumReceiver.sol";
 
 contract MessageOrderingArbitrum is MessageOrdering, ArbitrumReceiver {

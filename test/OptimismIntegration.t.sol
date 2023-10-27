@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { OptimismDomain } from "../src/testing/OptimismDomain.sol";
+
 import { OptimismReceiver } from "../src/OptimismReceiver.sol";
 
 contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
