@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { GnosisDomain } from "../src/testing/GnosisDomain.sol";
+
 import { GnosisReceiver } from "../src/GnosisReceiver.sol";
 
 contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
