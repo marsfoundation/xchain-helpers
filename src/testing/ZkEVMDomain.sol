@@ -35,8 +35,6 @@ interface IZkEVMBridgeLike {
 }
 
 contract ZkEVMDomain is BridgedDomain {
-    error MessageFailed();
-
     IZkEVMBridgeLike public L1_MESSENGER;
 
     bytes32 constant BRIDGE_EVENT_TOPIC =
@@ -62,7 +60,7 @@ contract ZkEVMDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
             Vm.Log memory log = logs[lastFromHostLogIndex];
-            if (_isBridgeMessageEvent(log, true)) _claimMessage(log, true);
+            if (_isBridgeMessageEvent(log, true)) _claimMessage(log);
         }
 
         if (!switchToGuest) {
@@ -77,7 +75,7 @@ contract ZkEVMDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
             Vm.Log memory log = logs[lastToHostLogIndex];
-            if (_isBridgeMessageEvent(log, false)) _claimMessage(log, false);
+            if (_isBridgeMessageEvent(log, false)) _claimMessage(log);
         }
 
         if (!switchToHost) {
@@ -95,8 +93,7 @@ contract ZkEVMDomain is BridgedDomain {
             log.emitter == address(L1_MESSENGER) && messageType == 1 && (host ? originNetwork == 0 : originNetwork == 1);
     }
 
-    function _claimMessage(Vm.Log memory log, bool host) internal {
-        require(_isBridgeMessageEvent(log, host), "ZkEVMDomain: !bridgeMessage");
+    function _claimMessage(Vm.Log memory log) internal {
         (
             /* uint8 messageType */
             ,
@@ -117,11 +114,13 @@ contract ZkEVMDomain is BridgedDomain {
         // mock bridge callback
         // ref: https://github.com/0xPolygonHermez/zkevm-contracts/blob/main/contracts/PolygonZkEVMBridge.sol#L455-L465
         vm.prank(address(L1_MESSENGER));
-        (bool success,) = destinationAddress.call{value: msgValue}(
+        (bool success, bytes memory response) = destinationAddress.call{value: msgValue}(
             abi.encodeCall(IBridgeMessageReceiver.onMessageReceived, (originAddress, originNetwork, metadata))
         );
         if (!success) {
-            revert MessageFailed();
+            assembly {
+                revert(add(response, 32), mload(response))
+            }
         }
     }
 }
