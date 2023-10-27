@@ -184,7 +184,8 @@ library XChainForwarders {
         bool forceUpdateGlobalExitRoot,
         bytes memory metadata
     ) internal {
-        ICrossDomainZkEVM(0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe).bridgeMessage(
+        sendMessageZkEVM(
+            0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe,
             destinationNetworkId,
             destinationAddress,
             forceUpdateGlobalExitRoot,
