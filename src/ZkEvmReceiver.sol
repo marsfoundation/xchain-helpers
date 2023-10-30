@@ -11,6 +11,7 @@ interface IZkEvmBridgeMessageReceiver {
  */
 abstract contract ZkEvmReceiver is IZkEvmBridgeMessageReceiver {
     address public immutable l1Authority;
+    address constant bridge = 0x2a3DD3EB832aF982ec71669E178424b10Dca2EDe;
 
     constructor(address _l1Authority) {
         l1Authority = _l1Authority;
@@ -22,6 +23,7 @@ abstract contract ZkEvmReceiver is IZkEvmBridgeMessageReceiver {
     }
 
     function onMessageReceived(address originAddress, uint32, /*originNetwork*/ bytes calldata data) external payable {
+        require(msg.sender == bridge, "Receiver/invalid-caller");
         require(originAddress == l1Authority, "Receiver/invalid-l1Authority");
         (bool success, bytes memory ret) = address(this).call(data);
         if (!success) {
