@@ -4,19 +4,20 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { ZkEVMDomain } from "../src/testing/ZkEVMDomain.sol";
-import { ZkEvmReceiver } from "../src/ZkEvmReceiver.sol";
+import { ZkEVMReceiver } from "../src/ZkEVMReceiver.sol";
 
-contract ZkevmMessageOrdering is MessageOrdering, ZkEvmReceiver {
-    constructor(address l1Authority) ZkEvmReceiver(l1Authority) {}
+contract ZkEVMMessageOrdering is MessageOrdering, ZkEVMReceiver {
+    constructor(address l1Authority, uint32 networkId) ZkEVMReceiver(l1Authority, networkId) {}
 
-    function push(uint256 messageId) public override onlySelf {
+    function push(uint256 messageId) public override onlyCrossChainMessage {
         super.push(messageId);
     }
 
 }
 
 contract ZkEVMIntegrationTest is IntegrationBaseTest {
-    address l2Authority = makeAddr("l2Authority");
+    address l2Authority    = makeAddr("l2Authority");
+    address notL2Authority = makeAddr("notL2Authority");
 
     function test_zkevm() public {
         setChain("zkevm", ChainData("ZkEVM", 1101, "https://zkevm-rpc.com"));
@@ -24,16 +25,17 @@ contract ZkEVMIntegrationTest is IntegrationBaseTest {
         checkZkEVMStyle(new ZkEVMDomain(getChain("zkevm"), mainnet));
     }
 
-   function checkZkEVMStyle(ZkEVMDomain zkevm) public {
+    function checkZkEVMStyle(ZkEVMDomain zkevm) public {
         Domain host = zkevm.hostDomain();
 
         host.selectFork();
 
-        ZkevmMessageOrdering moHost = new ZkevmMessageOrdering(l2Authority);
+        // origin network of the other leg, so 1 for host and 0 for l2
+        ZkEVMMessageOrdering moHost = new ZkEVMMessageOrdering(l2Authority, 1);
 
         zkevm.selectFork();
 
-        ZkevmMessageOrdering moZkevm = new ZkevmMessageOrdering(l1Authority);
+        ZkEVMMessageOrdering moZkevm = new ZkEVMMessageOrdering(l1Authority, 0);
 
         vm.startPrank(l2Authority);
         // Queue up two more L2 -> L1 messages
@@ -77,6 +79,18 @@ contract ZkEVMIntegrationTest is IntegrationBaseTest {
         zkevm.selectFork();
         vm.expectRevert("Receiver/invalid-sender");
         moZkevm.push(999);
+
+        // validate message sender is bridge
+        vm.expectRevert("Receiver/invalid-sender");
+        moZkevm.onMessageReceived(address(moHost), 0, abi.encodeCall(MessageOrdering.push, (1000)));
+
+        // validate origin network is correct
+        // cannot queue from l1 and relayFromHost because relayFromHost filters
+        // on the basis of origin network being 1
+        vm.startPrank(moZkevm.bridge());
+        vm.expectRevert("Receiver/invalid-originNetwork");
+        moZkevm.onMessageReceived(address(moZkevm), 2, abi.encodeCall(MessageOrdering.push, (1001)));
+        vm.stopPrank();
     }
 
 }
