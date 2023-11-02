@@ -4,6 +4,7 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { ZkEVMDomain } from "../src/testing/ZkEVMDomain.sol";
+
 import { ZkEVMReceiver } from "../src/ZkEVMReceiver.sol";
 
 contract ZkEVMMessageOrdering is MessageOrdering, ZkEVMReceiver {
