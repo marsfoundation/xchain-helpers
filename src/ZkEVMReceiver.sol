@@ -24,7 +24,7 @@ abstract contract ZkEVMReceiver is IZkEVMBridgeMessageReceiver {
         _;
     }
 
-    function onMessageReceived(address originAddress, uint32 originNetwork, bytes calldata data) external payable {
+    function onMessageReceived(address originAddress, uint32 originNetwork, bytes calldata data) external payable virtual {
         require(msg.sender == bridge,             "Receiver/invalid-sender");
         require(originNetwork == originNetworkId, "Receiver/invalid-originNetwork");
         require(originAddress == l1Authority,     "Receiver/invalid-l1Authority");
