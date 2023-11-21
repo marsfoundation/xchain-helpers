@@ -32,6 +32,23 @@ interface ICrossDomainZkEVM {
     ) external payable;
 }
 
+interface ICrossDomainScroll {
+    function sendMessage(
+        address target,
+        uint256 value,
+        bytes calldata message,
+        uint256 gasLimit
+    ) external payable;
+
+    function sendMessage(
+        address target,
+        uint256 value,
+        bytes calldata message,
+        uint256 gasLimit,
+        address refundAddress
+    ) external payable;
+}
+
 /**
  * @title XChainForwarders
  * @notice Helper functions to abstract over L1 -> L2 message passing.
@@ -191,4 +208,35 @@ library XChainForwarders {
         );
     }
 
+    /// ================================ Scroll ================================
+
+    function sendMessageScroll(
+        address l1CrossDomain,
+        address target,
+        bytes memory message,
+        uint256 gasLimit,
+        uint256 fee
+    ) internal {
+        ICrossDomainScroll(l1CrossDomain).sendMessage{value:fee}(
+            target,
+            0,
+            message,
+            gasLimit
+        );
+    }
+
+    function sendMessageScrollMainnet(
+        address target,
+        bytes memory message,
+        uint256 gasLimit,
+        uint256 fee
+    ) internal {
+        sendMessageScroll(
+            0x6774Bcbd5ceCeF1336b5300fb5186a12DDD8b367,
+            target,
+            message,
+            gasLimit,
+            fee
+        );
+    }
 }
