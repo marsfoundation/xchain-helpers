@@ -104,24 +104,6 @@ library XChainForwarders {
         );
     }
 
-    function sendMessageArbitrum(
-        address l1CrossDomain,
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageArbitrum(
-            l1CrossDomain,
-            target,
-            message,
-            gasLimit,
-            // These constants are reasonable estimates based on current market conditions
-            // They can be updated as needed
-            1 gwei,
-            block.basefee + 10 gwei
-        );
-    }
-
     function sendMessageArbitrumOne(
         address target,
         bytes memory message,
@@ -139,22 +121,6 @@ library XChainForwarders {
         );
     }
 
-    function sendMessageArbitrumOne(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageArbitrumOne(
-            target,
-            message,
-            gasLimit,
-            // These constants are reasonable estimates based on current market conditions
-            // They can be updated as needed
-            1 gwei,
-            block.basefee + 10 gwei
-        );
-    }
-
     function sendMessageArbitrumNova(
         address target,
         bytes memory message,
@@ -169,22 +135,6 @@ library XChainForwarders {
             gasLimit,
             maxFeePerGas,
             baseFee
-        );
-    }
-
-    function sendMessageArbitrumNova(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageArbitrumNova(
-            target,
-            message,
-            gasLimit,
-            // These constants are reasonable estimates based on current market conditions
-            // They can be updated as needed
-            1 gwei,
-            block.basefee + 10 gwei
         );
     }
 
