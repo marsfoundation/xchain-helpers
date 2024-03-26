@@ -25,16 +25,8 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         checkOptimismStyle(new OptimismDomain(getChain("optimism"), mainnet));
     }
 
-    function test_optimismGoerli() public {
-        checkOptimismStyle(new OptimismDomain(getChain("optimism_goerli"), goerli));
-    }
-
     function test_base() public {
         checkOptimismStyle(new OptimismDomain(getChain("base"), mainnet));
-    }
-
-    function test_baseGoerli() public {
-        checkOptimismStyle(new OptimismDomain(getChain("base_goerli"), goerli));
     }
 
     function checkOptimismStyle(OptimismDomain optimism) public {
