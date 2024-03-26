@@ -88,9 +88,9 @@ library XChainForwarders {
         bytes memory message,
         uint256 gasLimit,
         uint256 maxFeePerGas,
-        uint256 baseFeeMargin
+        uint256 baseFee
     ) internal {
-        uint256 maxSubmission = ICrossDomainArbitrum(l1CrossDomain).calculateRetryableSubmissionFee(message.length, block.basefee + baseFeeMargin);
+        uint256 maxSubmission = ICrossDomainArbitrum(l1CrossDomain).calculateRetryableSubmissionFee(message.length, baseFee);
         uint256 maxRedemption = gasLimit * maxFeePerGas;
         ICrossDomainArbitrum(l1CrossDomain).createRetryableTicket{value: maxSubmission + maxRedemption}(
             target,
@@ -118,7 +118,7 @@ library XChainForwarders {
             // These constants are reasonable estimates based on current market conditions
             // They can be updated as needed
             1 gwei,
-            10 gwei
+            block.basefee + 10 gwei
         );
     }
 
