@@ -86,14 +86,11 @@ library XChainForwarders {
         address l1CrossDomain,
         address target,
         bytes memory message,
-        uint256 gasLimit
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        uint256 baseFee
     ) internal {
-        // These constants are reasonable estimates based on current market conditions
-        // They can be updated as needed
-        uint256 maxFeePerGas = 1 gwei;
-        uint256 baseFeeMargin = 10 gwei;
-
-        uint256 maxSubmission = ICrossDomainArbitrum(l1CrossDomain).calculateRetryableSubmissionFee(message.length, block.basefee + baseFeeMargin);
+        uint256 maxSubmission = ICrossDomainArbitrum(l1CrossDomain).calculateRetryableSubmissionFee(message.length, baseFee);
         uint256 maxRedemption = gasLimit * maxFeePerGas;
         ICrossDomainArbitrum(l1CrossDomain).createRetryableTicket{value: maxSubmission + maxRedemption}(
             target,
@@ -110,26 +107,34 @@ library XChainForwarders {
     function sendMessageArbitrumOne(
         address target,
         bytes memory message,
-        uint256 gasLimit
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        uint256 baseFee
     ) internal {
         sendMessageArbitrum(
             0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f,
             target,
             message,
-            gasLimit
+            gasLimit,
+            maxFeePerGas,
+            baseFee
         );
     }
 
     function sendMessageArbitrumNova(
         address target,
         bytes memory message,
-        uint256 gasLimit
+        uint256 gasLimit,
+        uint256 maxFeePerGas,
+        uint256 baseFee
     ) internal {
         sendMessageArbitrum(
             0xc4448b71118c9071Bcb9734A0EAc55D18A153949,
             target,
             message,
-            gasLimit
+            gasLimit,
+            maxFeePerGas,
+            baseFee
         );
     }
 

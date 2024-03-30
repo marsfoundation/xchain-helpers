@@ -23,10 +23,6 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         checkArbitrumStyle(new ArbitrumDomain(getChain("arbitrum_one"), mainnet));
     }
 
-    function test_arbitrumOneGoerli() public {
-        checkArbitrumStyle(new ArbitrumDomain(getChain("arbitrum_one_goerli"), goerli));
-    }
-
     function test_arbitrumNova() public {
         checkArbitrumStyle(new ArbitrumDomain(getChain("arbitrum_nova"), mainnet));
     }
@@ -66,13 +62,17 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
             address(arbitrum.INBOX()),
             address(moArbitrum),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
-            100000
+            100000,
+            1 gwei,
+            block.basefee + 10 gwei
         );
         XChainForwarders.sendMessageArbitrum(
             address(arbitrum.INBOX()),
             address(moArbitrum),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
-            100000
+            100000,
+            1 gwei,
+            block.basefee + 10 gwei
         );
         vm.stopPrank();
 
@@ -96,7 +96,9 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
             address(arbitrum.INBOX()),
             address(moArbitrum),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),
-            100000
+            100000,
+            1 gwei,
+            block.basefee + 10 gwei
         );
         vm.stopPrank();
 

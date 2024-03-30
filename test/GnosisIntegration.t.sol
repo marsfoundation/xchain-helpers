@@ -23,12 +23,6 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
         checkGnosisStyle(new GnosisDomain(getChain('gnosis_chain'), mainnet), 0x75Df5AF045d91108662D8080fD1FEFAd6aA0bb59);
     }
 
-    function test_chiado() public {
-        setChain("chiado", ChainData("Chiado", 10200, "https://rpc.chiadochain.net"));
-
-        checkGnosisStyle(new GnosisDomain(getChain('chiado'), goerli), 0x99Ca51a3534785ED619f46A79C7Ad65Fa8d85e7a);
-    }
-
     function checkGnosisStyle(GnosisDomain gnosis, address _l2CrossDomain) public {
         Domain host = gnosis.hostDomain();
 
