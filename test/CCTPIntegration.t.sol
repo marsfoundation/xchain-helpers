@@ -27,6 +27,11 @@ contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
 
 contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
+    function test_avalanche() public {
+        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("avalanche"), mainnet);
+        checkCircleCCTPStyle(cctp, 1);
+    }
+
     function test_optimism() public {
         CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("optimism"), mainnet);
         checkCircleCCTPStyle(cctp, 2);
@@ -40,6 +45,11 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
     function test_base() public {
         CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("base"), mainnet);
         checkCircleCCTPStyle(cctp, 6);
+    }
+
+    function test_polygon() public {
+        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("polygon"), mainnet);
+        checkCircleCCTPStyle(cctp, 7);
     }
 
     function checkCircleCCTPStyle(CircleCCTPDomain cctp, uint32 guestDomain) public {
