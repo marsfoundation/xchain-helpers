@@ -21,10 +21,6 @@ abstract contract CCTPReceiver {
         l1Authority   = _l1Authority;
     }
 
-    function _getL1MessageSender() internal view returns (address) {
-        return l1Authority;
-    }
-
     function _onlyCrossChainMessage() internal view {
         require(msg.sender == address(this), "Receiver/invalid-sender");
     }
