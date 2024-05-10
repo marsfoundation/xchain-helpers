@@ -11,11 +11,11 @@ contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
 
     constructor(
         address _l2CrossDomain,
-        uint32  _chainId,
+        uint32  _sourceDomain,
         address _l1Authority
     ) CCTPReceiver(
         _l2CrossDomain,
-        _chainId,
+        _sourceDomain,
         _l1Authority
     ) {}
 
@@ -32,34 +32,51 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         checkCircleCCTPStyle(cctp, 2);
     }
 
+    function test_arbitrum_one() public {
+        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("arbitrum_one"), mainnet);
+        checkCircleCCTPStyle(cctp, 3);
+    }
+
+    function test_base() public {
+        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("base"), mainnet);
+        checkCircleCCTPStyle(cctp, 6);
+    }
+
     function checkCircleCCTPStyle(CircleCCTPDomain cctp, uint32 guestDomain) public {
         Domain host = cctp.hostDomain();
+        uint32 hostDomain = 0;  // Ethereum
 
         host.selectFork();
 
-        MessageOrdering moHost = new MessageOrdering();
+        MessageOrderingCCTP moHost = new MessageOrderingCCTP(
+            address(cctp.L1_MESSENGER()),
+            guestDomain,
+            l1Authority
+        );
 
         cctp.selectFork();
 
         MessageOrderingCCTP moCCTP = new MessageOrderingCCTP(
             address(cctp.L2_MESSENGER()),
-            0,  // Ethereum
+            hostDomain,
             l1Authority
         );
 
         // Queue up some L2 -> L1 messages
+        vm.startPrank(l1Authority);
         XChainForwarders.sendMessageCCTP(
             address(cctp.L2_MESSENGER()),
-            0,  // Ethereum
+            hostDomain,
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3)
         );
         XChainForwarders.sendMessageCCTP(
             address(cctp.L2_MESSENGER()),
-            0,
+            hostDomain,
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4)
         );
+        vm.stopPrank();
 
         assertEq(moCCTP.length(), 0);
 
@@ -94,8 +111,6 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         assertEq(moHost.messages(0), 3);
         assertEq(moHost.messages(1), 4);
 
-        return;
-
         // Validate the message receiver failure modes
         vm.startPrank(notL1Authority);
         XChainForwarders.sendMessageCircleCCTP(
@@ -105,14 +120,20 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         );
         vm.stopPrank();
 
-        vm.expectRevert("handleReceiveMessage() failed");
+        vm.expectRevert("Receiver/invalid-l1Authority");
         cctp.relayFromHost(true);
 
         cctp.selectFork();
         vm.expectRevert("Receiver/invalid-sender");
         moCCTP.push(999);
 
-        // TODO test the source domain doesn't match will revert
+        vm.expectRevert("Receiver/invalid-sender");
+        moCCTP.handleReceiveMessage(0, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
+
+        assertEq(moCCTP.sourceDomain(), 0);
+        vm.prank(address(cctp.L2_MESSENGER()));
+        vm.expectRevert("Receiver/invalid-sourceDomain");
+        moCCTP.handleReceiveMessage(1, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
     }
 
 }

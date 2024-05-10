@@ -37,17 +37,14 @@ contract CircleCCTPDomain is BridgedDomain {
             revert("Unsupported chain");
         }
 
+        // Set minimum required signatures to zero for both domains
         selectFork();
-
-        // Set minimum required signatures to zero
         vm.store(
             address(L2_MESSENGER),
             bytes32(uint256(4)),
             0
         );
-
         hostDomain.selectFork();
-
         vm.store(
             address(L1_MESSENGER),
             bytes32(uint256(4)),
@@ -65,7 +62,7 @@ contract CircleCCTPDomain is BridgedDomain {
         for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
             Vm.Log memory log = logs[lastFromHostLogIndex];
             if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(L1_MESSENGER)) {
-                L2_MESSENGER.receiveMessage(log.data, "");
+                L2_MESSENGER.receiveMessage(removeFirst64Bytes(log.data), "");
             }
         }
 
@@ -82,13 +79,21 @@ contract CircleCCTPDomain is BridgedDomain {
         for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
             Vm.Log memory log = logs[lastToHostLogIndex];
             if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(L2_MESSENGER)) {
-                L1_MESSENGER.receiveMessage(log.data, "");
+                L1_MESSENGER.receiveMessage(removeFirst64Bytes(log.data), "");
             }
         }
 
         if (!switchToHost) {
             selectFork();
         }
+    }
+
+    function removeFirst64Bytes(bytes memory inputData) public pure returns (bytes memory) {
+        bytes memory returnValue = new bytes(inputData.length - 64);
+        for (uint256 i = 0; i < inputData.length - 64; i++) {
+            returnValue[i] = inputData[i + 64];
+        }
+        return returnValue;
     }
 
 }
