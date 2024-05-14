@@ -15,43 +15,50 @@ contract CircleCCTPDomain is BridgedDomain {
 
     bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("MessageSent(bytes)");
 
-    MessengerLike public constant L1_MESSENGER = MessengerLike(0x0a992d191DEeC32aFe36203Ad87D7d289a738F81);
-    MessengerLike public L2_MESSENGER;
+    MessengerLike public SOURCE_MESSENGER;
+    MessengerLike public DESTINATION_MESSENGER;
 
     uint256 internal lastFromHostLogIndex;
     uint256 internal lastToHostLogIndex;
 
     constructor(StdChains.Chain memory _chain, Domain _hostDomain) Domain(_chain) BridgedDomain(_hostDomain) {
-        bytes32 name = keccak256(bytes(_chain.chainAlias));
-        if (name == keccak256("avalanche")) {
-            L2_MESSENGER = MessengerLike(0x8186359aF5F57FbB40c6b14A588d2A59C0C29880);
-        } else if (name == keccak256("optimism")) {
-            L2_MESSENGER = MessengerLike(0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8);
-        } else if (name == keccak256("arbitrum_one")) {
-            L2_MESSENGER = MessengerLike(0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca);
-        } else if (name == keccak256("base")) {
-            L2_MESSENGER = MessengerLike(0xAD09780d193884d503182aD4588450C416D6F9D4);
-        } else if (name == keccak256("polygon")) {
-            L2_MESSENGER = MessengerLike(0xF3be9355363857F3e001be68856A2f96b4C39Ba9);
-        } else {
-            revert("Unsupported chain");
-        }
+        SOURCE_MESSENGER = MessengerLike(_getMessengerFromChainAlias(_hostDomain.details().chainAlias));
+        DESTINATION_MESSENGER = MessengerLike(_getMessengerFromChainAlias(_chain.chainAlias));
 
         // Set minimum required signatures to zero for both domains
         selectFork();
         vm.store(
-            address(L2_MESSENGER),
+            address(DESTINATION_MESSENGER),
             bytes32(uint256(4)),
             0
         );
         hostDomain.selectFork();
         vm.store(
-            address(L1_MESSENGER),
+            address(SOURCE_MESSENGER),
             bytes32(uint256(4)),
             0
         );
 
         vm.recordLogs();
+    }
+
+    function _getMessengerFromChainAlias(string memory chainAlias) internal pure returns (address) {
+        bytes32 name = keccak256(bytes(chainAlias));
+        if (name == keccak256("mainnet")) {
+            return 0x0a992d191DEeC32aFe36203Ad87D7d289a738F81;
+        } else if (name == keccak256("avalanche")) {
+            return 0x8186359aF5F57FbB40c6b14A588d2A59C0C29880;
+        } else if (name == keccak256("optimism")) {
+            return 0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8;
+        } else if (name == keccak256("arbitrum_one")) {
+            return 0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca;
+        } else if (name == keccak256("base")) {
+            return 0xAD09780d193884d503182aD4588450C416D6F9D4;
+        } else if (name == keccak256("polygon")) {
+            return 0xF3be9355363857F3e001be68856A2f96b4C39Ba9;
+        } else {
+            revert("Unsupported chain");
+        }
     }
 
     function relayFromHost(bool switchToGuest) external override {
@@ -61,8 +68,8 @@ contract CircleCCTPDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
             Vm.Log memory log = logs[lastFromHostLogIndex];
-            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(L1_MESSENGER)) {
-                L2_MESSENGER.receiveMessage(removeFirst64Bytes(log.data), "");
+            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(SOURCE_MESSENGER)) {
+                DESTINATION_MESSENGER.receiveMessage(removeFirst64Bytes(log.data), "");
             }
         }
 
@@ -78,8 +85,8 @@ contract CircleCCTPDomain is BridgedDomain {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
             Vm.Log memory log = logs[lastToHostLogIndex];
-            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(L2_MESSENGER)) {
-                L1_MESSENGER.receiveMessage(removeFirst64Bytes(log.data), "");
+            if (log.topics[0] == SENT_MESSAGE_TOPIC && log.emitter == address(DESTINATION_MESSENGER)) {
+                SOURCE_MESSENGER.receiveMessage(removeFirst64Bytes(log.data), "");
             }
         }
 

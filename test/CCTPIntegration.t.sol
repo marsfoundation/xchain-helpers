@@ -59,7 +59,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         host.selectFork();
 
         MessageOrderingCCTP moHost = new MessageOrderingCCTP(
-            address(cctp.L1_MESSENGER()),
+            address(cctp.SOURCE_MESSENGER()),
             guestDomain,
             l1Authority
         );
@@ -67,7 +67,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         cctp.selectFork();
 
         MessageOrderingCCTP moCCTP = new MessageOrderingCCTP(
-            address(cctp.L2_MESSENGER()),
+            address(cctp.DESTINATION_MESSENGER()),
             hostDomain,
             l1Authority
         );
@@ -75,13 +75,13 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         // Queue up some L2 -> L1 messages
         vm.startPrank(l1Authority);
         XChainForwarders.sendMessageCCTP(
-            address(cctp.L2_MESSENGER()),
+            address(cctp.DESTINATION_MESSENGER()),
             hostDomain,
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3)
         );
         XChainForwarders.sendMessageCCTP(
-            address(cctp.L2_MESSENGER()),
+            address(cctp.DESTINATION_MESSENGER()),
             hostDomain,
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4)
@@ -141,7 +141,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         moCCTP.handleReceiveMessage(0, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
 
         assertEq(moCCTP.sourceDomain(), 0);
-        vm.prank(address(cctp.L2_MESSENGER()));
+        vm.prank(address(cctp.DESTINATION_MESSENGER()));
         vm.expectRevert("Receiver/invalid-sourceDomain");
         moCCTP.handleReceiveMessage(1, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
     }
