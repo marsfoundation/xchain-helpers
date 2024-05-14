@@ -27,6 +27,8 @@ contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
 
 contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
+    address l2Authority = makeAddr("l2Authority");
+
     function test_avalanche() public {
         CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("avalanche"), mainnet);
         checkCircleCCTPStyle(cctp, 1);
@@ -61,7 +63,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         MessageOrderingCCTP moHost = new MessageOrderingCCTP(
             address(cctp.SOURCE_MESSENGER()),
             destinationDomainId,
-            l1Authority
+            l2Authority
         );
 
         cctp.selectFork();
@@ -73,7 +75,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         );
 
         // Queue up some L2 -> L1 messages
-        vm.startPrank(l1Authority);
+        vm.startPrank(l2Authority);
         XChainForwarders.sendMessageCCTP(
             address(cctp.DESTINATION_MESSENGER()),
             sourceDomainId,
