@@ -7,18 +7,18 @@ pragma solidity ^0.8.0;
  */
 abstract contract CCTPReceiver {
 
-    address public immutable l2CrossDomain;
-    uint32 public immutable  sourceDomain;
-    address public immutable l1Authority;
+    address public immutable destinationCrossDomain;
+    uint32 public immutable  sourceDomainId;
+    address public immutable sourceAuthority;
 
     constructor(
-        address _l2CrossDomain,
-        uint32  _sourceDomain,
-        address _l1Authority
+        address _destinationCrossDomain,
+        uint32  _sourceDomainId,
+        address _sourceAuthority
     ) {
-        l2CrossDomain = _l2CrossDomain;
-        sourceDomain  = _sourceDomain;
-        l1Authority   = _l1Authority;
+        destinationCrossDomain = _destinationCrossDomain;
+        sourceDomainId         = _sourceDomainId;
+        sourceAuthority        = _sourceAuthority;
     }
 
     function _onlyCrossChainMessage() internal view {
@@ -31,13 +31,13 @@ abstract contract CCTPReceiver {
     }
 
     function handleReceiveMessage(
-        uint32 _sourceDomain,
+        uint32 sourceDomain,
         bytes32 sender,
         bytes calldata messageBody
     ) external returns (bool) {
-        require(msg.sender == l2CrossDomain,                      "Receiver/invalid-sender");
-        require(_sourceDomain == sourceDomain,                    "Receiver/invalid-sourceDomain");
-        require(sender == bytes32(uint256(uint160(l1Authority))), "Receiver/invalid-l1Authority");
+        require(msg.sender == destinationCrossDomain,                 "Receiver/invalid-sender");
+        require(sourceDomainId == sourceDomain,                       "Receiver/invalid-sourceDomain");
+        require(sender == bytes32(uint256(uint160(sourceAuthority))), "Receiver/invalid-sourceAuthority");
 
         (bool success, bytes memory ret) = address(this).call(messageBody);
         if (!success) {
