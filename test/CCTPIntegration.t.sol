@@ -10,12 +10,12 @@ import { CCTPReceiver } from "../src/CCTPReceiver.sol";
 contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
 
     constructor(
-        address _l2CrossDomain,
-        uint32  _sourceDomain,
+        address _destinationMessenger,
+        uint32  _sourceDomainId,
         address _sourceAuthority
     ) CCTPReceiver(
-        _l2CrossDomain,
-        _sourceDomain,
+        _destinationMessenger,
+        _sourceDomainId,
         _sourceAuthority
     ) {}
 

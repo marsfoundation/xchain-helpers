@@ -207,12 +207,12 @@ library XChainForwarders {
     /// ================================ CCTP ================================
 
     function sendMessageCCTP(
-        address sourceCrossDomain,
+        address sourceMessenger,
         uint32 destinationDomainId,
         bytes32 recipient,
         bytes memory messageBody
     ) internal {
-        ICrossDomainCircleCCTP(sourceCrossDomain).sendMessage(
+        ICrossDomainCircleCCTP(sourceMessenger).sendMessage(
             destinationDomainId,
             recipient,
             messageBody
@@ -220,13 +220,13 @@ library XChainForwarders {
     }
 
     function sendMessageCCTP(
-        address sourceCrossDomain,
+        address sourceMessenger,
         uint32 destinationDomainId,
         address recipient,
         bytes memory messageBody
     ) internal {
         sendMessageCCTP(
-            sourceCrossDomain,
+            sourceMessenger,
             destinationDomainId,
             bytes32(uint256(uint160(recipient))),
             messageBody

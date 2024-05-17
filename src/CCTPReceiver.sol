@@ -7,18 +7,18 @@ pragma solidity ^0.8.0;
  */
 abstract contract CCTPReceiver {
 
-    address public immutable destinationCrossDomain;
-    uint32 public immutable  sourceDomainId;
+    address public immutable destinationMessenger;
+    uint32  public immutable sourceDomainId;
     address public immutable sourceAuthority;
 
     constructor(
-        address _destinationCrossDomain,
+        address _destinationMessenger,
         uint32  _sourceDomainId,
         address _sourceAuthority
     ) {
-        destinationCrossDomain = _destinationCrossDomain;
-        sourceDomainId         = _sourceDomainId;
-        sourceAuthority        = _sourceAuthority;
+        destinationMessenger = _destinationMessenger;
+        sourceDomainId       = _sourceDomainId;
+        sourceAuthority      = _sourceAuthority;
     }
 
     function _onlyCrossChainMessage() internal view {
@@ -35,7 +35,7 @@ abstract contract CCTPReceiver {
         bytes32 sender,
         bytes calldata messageBody
     ) external returns (bool) {
-        require(msg.sender == destinationCrossDomain,                 "Receiver/invalid-sender");
+        require(msg.sender == destinationMessenger,                   "Receiver/invalid-sender");
         require(sourceDomainId == sourceDomain,                       "Receiver/invalid-sourceDomain");
         require(sender == bytes32(uint256(uint160(sourceAuthority))), "Receiver/invalid-sourceAuthority");
 

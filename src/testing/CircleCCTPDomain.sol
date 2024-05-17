@@ -22,7 +22,7 @@ contract CircleCCTPDomain is BridgedDomain {
     uint256 internal lastToHostLogIndex;
 
     constructor(StdChains.Chain memory _chain, Domain _hostDomain) Domain(_chain) BridgedDomain(_hostDomain) {
-        SOURCE_MESSENGER = MessengerLike(_getMessengerFromChainAlias(_hostDomain.details().chainAlias));
+        SOURCE_MESSENGER      = MessengerLike(_getMessengerFromChainAlias(_hostDomain.details().chainAlias));
         DESTINATION_MESSENGER = MessengerLike(_getMessengerFromChainAlias(_chain.chainAlias));
 
         // Set minimum required signatures to zero for both domains
