@@ -11,7 +11,7 @@ interface MessengerLike {
     function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool success);
 }
 
-contract CircleCCTPDomain is BridgedDomain {
+contract CCTPBridge is IUnidirectionalBridge {
 
     bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("MessageSent(bytes)");
 

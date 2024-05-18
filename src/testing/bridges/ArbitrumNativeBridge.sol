@@ -18,7 +18,7 @@ interface InboxLike {
         uint256 gasPriceBid,
         bytes calldata data
     ) external payable returns (uint256);
-    function bridge() external view returns (address);
+    function bridge() external view returns (BridgeLike);
 }
 
 interface BridgeLike {
@@ -49,48 +49,28 @@ contract ArbitrumNativeBridge is IBidirectionalBridge {
     bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
     bytes32 private constant SEND_TO_L1_TOPIC        = keccak256("SendTxToL1(address,address,bytes)");
 
-    address public constant ARB_SYS = 0x0000000000000000000000000000000000000064;
-    InboxLike public INBOX;
-    BridgeLike public immutable BRIDGE;
-
     address public l2ToL1Sender;
 
-    uint256 internal lastFromHostLogIndex;
-    uint256 internal lastToHostLogIndex;
+    BridgeData public data;
 
-    Domain public source;
-    Domain public destination;
+    constructor(BridgeData memory _data) {
+        data = _data;
 
-    constructor(Domain memory _source, Domain memory _destination) {
-        require(keccak256(bytes(destination.chain.chainAlias)) == keccak256("mainnet"), "Source must be Ethereum.");
-
-        bytes32 name = keccak256(bytes(destination.chain.chainAlias));
-        if (name == keccak256("arbitrum_one")) {
-            INBOX = InboxLike(0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f);
-        } else if (name == keccak256("arbitrum_nova")) {
-            INBOX = InboxLike(0xc4448b71118c9071Bcb9734A0EAc55D18A153949);
-        } else {
-            revert("Unsupported chain");
-        }
-
-        source      = _source;
-        destination = _destination;
-
-        source.selectFork();
-        BRIDGE = BridgeLike(INBOX.bridge());
+        data.source.selectFork();
+        BridgeLike bridge = InboxLike(data.sourceCrossChainMessenger).bridge();
         vm.recordLogs();
         vm.makePersistent(address(this));
 
         // Make this contract a valid outbox
-        address _rollup = BRIDGE.rollup();
+        address _rollup = bridge.rollup();
         vm.store(
-            address(BRIDGE),
+            address(bridge),
             bytes32(uint256(8)),
             bytes32(uint256(uint160(address(this))))
         );
-        BRIDGE.setOutbox(address(this), true);
+        bridge.setOutbox(address(this), true);
         vm.store(
-            address(BRIDGE),
+            address(bridge),
             bytes32(uint256(8)),
             bytes32(uint256(uint160(_rollup)))
         );
@@ -155,7 +135,7 @@ contract ArbitrumNativeBridge is IBidirectionalBridge {
             if (log.topics[0] == SEND_TO_L1_TOPIC) {
                 (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
                 l2ToL1Sender = sender;
-                (bool success, bytes memory response) = BRIDGE.executeCall(target, 0, message);
+                (bool success, bytes memory response) = InboxLike(data.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
                 if (!success) {
                     assembly {
                         revert(add(response, 32), mload(response))
