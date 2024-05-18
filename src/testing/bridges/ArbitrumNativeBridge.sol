@@ -4,8 +4,8 @@ pragma solidity >=0.8.0;
 import { StdChains } from "forge-std/StdChains.sol";
 import { Vm }        from "forge-std/Vm.sol";
 
-import { Domain, BridgedDomain } from "./BridgedDomain.sol";
-import { RecordedLogs }          from "./RecordedLogs.sol";
+import { Domain, DomainHelpers } from "src/testing/Domain.sol";
+import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
 
 interface InboxLike {
     function createRetryableTicket(
@@ -42,7 +42,9 @@ contract ArbSysOverride {
 
 }
 
-contract ArbitrumDomain is BridgedDomain {
+contract ArbitrumNativeBridge is IBidirectionalBridge {
+
+    using DomainHelpers for *;
 
     bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
     bytes32 private constant SEND_TO_L1_TOPIC        = keccak256("SendTxToL1(address,address,bytes)");
@@ -56,21 +58,28 @@ contract ArbitrumDomain is BridgedDomain {
     uint256 internal lastFromHostLogIndex;
     uint256 internal lastToHostLogIndex;
 
-    constructor(StdChains.Chain memory _chain, Domain _hostDomain) Domain(_chain) BridgedDomain(_hostDomain) {
-        bytes32 name = keccak256(bytes(_chain.chainAlias));
+    Domain public source;
+    Domain public destination;
+
+    constructor(Domain memory _source, Domain memory _destination) {
+        require(keccak256(bytes(destination.chain.chainAlias)) == keccak256("mainnet"), "Source must be Ethereum.");
+
+        bytes32 name = keccak256(bytes(destination.chain.chainAlias));
         if (name == keccak256("arbitrum_one")) {
             INBOX = InboxLike(0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f);
-        } else if (name == keccak256("arbitrum_one_goerli")) {
-            INBOX = InboxLike(0x6BEbC4925716945D46F0Ec336D5C2564F419682C);
         } else if (name == keccak256("arbitrum_nova")) {
             INBOX = InboxLike(0xc4448b71118c9071Bcb9734A0EAc55D18A153949);
         } else {
             revert("Unsupported chain");
         }
 
-        _hostDomain.selectFork();
+        source      = _source;
+        destination = _destination;
+
+        source.selectFork();
         BRIDGE = BridgeLike(INBOX.bridge());
         vm.recordLogs();
+        vm.makePersistent(address(this));
 
         // Make this contract a valid outbox
         address _rollup = BRIDGE.rollup();
@@ -87,7 +96,7 @@ contract ArbitrumDomain is BridgedDomain {
         );
 
         // Need to replace ArbSys contract with custom code to make it compatible with revm
-        selectFork();
+        destination.selectFork();
         bytes memory bytecode = vm.getCode("ArbitrumDomain.sol:ArbSysOverride");
         address deployed;
         assembly {
@@ -95,7 +104,7 @@ contract ArbitrumDomain is BridgedDomain {
         }
         vm.etch(ARB_SYS, deployed.code);
 
-        _hostDomain.selectFork();
+        source.selectFork();
     }
 
     function parseData(bytes memory orig) private pure returns (address target, bytes memory message) {
@@ -108,8 +117,8 @@ contract ArbitrumDomain is BridgedDomain {
         }
     }
 
-    function relayFromHost(bool switchToGuest) external override {
-        selectFork();
+    function relayMessagesToSource(bool switchToDestinationFork) external override {
+        destination.selectFork();
 
         // Read all L1 -> L2 messages and relay them under Arbitrum fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
@@ -131,13 +140,13 @@ contract ArbitrumDomain is BridgedDomain {
             }
         }
 
-        if (!switchToGuest) {
-            hostDomain.selectFork();
+        if (!switchToDestinationFork) {
+            source.selectFork();
         }
     }
 
-    function relayToHost(bool switchToHost) external override {
-        hostDomain.selectFork();
+    function relayMessagesToSource(bool switchToSourceFork) external override {
+        source.selectFork();
 
         // Read all L2 -> L1 messages and relay them under host fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
@@ -155,8 +164,8 @@ contract ArbitrumDomain is BridgedDomain {
             }
         }
 
-        if (!switchToHost) {
-            selectFork();
+        if (!switchToSourceFork) {
+            destination.selectFork();
         }
     }
 
