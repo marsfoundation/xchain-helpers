@@ -32,6 +32,14 @@ interface ICrossDomainZkEVM {
     ) external payable;
 }
 
+interface ICrossDomainCircleCCTP {
+    function sendMessage(
+        uint32 destinationDomain,
+        bytes32 recipient,
+        bytes calldata messageBody
+    ) external;
+}
+
 /**
  * @title XChainForwarders
  * @notice Helper functions to abstract over L1 -> L2 message passing.
@@ -193,6 +201,61 @@ library XChainForwarders {
             destinationAddress,
             true,
             metadata
+        );
+    }
+
+    /// ================================ CCTP ================================
+
+    function sendMessageCCTP(
+        address sourceMessenger,
+        uint32 destinationDomainId,
+        bytes32 recipient,
+        bytes memory messageBody
+    ) internal {
+        ICrossDomainCircleCCTP(sourceMessenger).sendMessage(
+            destinationDomainId,
+            recipient,
+            messageBody
+        );
+    }
+
+    function sendMessageCCTP(
+        address sourceMessenger,
+        uint32 destinationDomainId,
+        address recipient,
+        bytes memory messageBody
+    ) internal {
+        sendMessageCCTP(
+            sourceMessenger,
+            destinationDomainId,
+            bytes32(uint256(uint160(recipient))),
+            messageBody
+        );
+    }
+
+    function sendMessageCircleCCTP(
+        uint32 destinationDomainId,
+        bytes32 recipient,
+        bytes memory messageBody
+    ) internal {
+        sendMessageCCTP(
+            0x0a992d191DEeC32aFe36203Ad87D7d289a738F81,
+            destinationDomainId,
+            recipient,
+            messageBody
+        );
+    }
+
+    function sendMessageCircleCCTP(
+        uint32 destinationDomainId,
+        address recipient,
+        bytes memory messageBody
+    ) internal {
+        sendMessageCCTP(
+            0x0a992d191DEeC32aFe36203Ad87D7d289a738F81,
+            destinationDomainId,
+            bytes32(uint256(uint160(recipient))),
+            messageBody
         );
     }
 
