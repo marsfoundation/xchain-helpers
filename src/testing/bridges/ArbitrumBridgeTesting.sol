@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity >=0.8.0;
 
-import { StdChains } from "forge-std/StdChains.sol";
 import { Vm }        from "forge-std/Vm.sol";
 
-import { Domain, DomainHelpers } from "src/testing/Domain.sol";
-import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
+import { RecordedLogs } from "src/testing/utils/RecordedLogs.sol";
+import { BridgeData }   from "./BridgeData.sol";
 
 interface InboxLike {
     function createRetryableTicket(
@@ -42,63 +41,85 @@ contract ArbSysOverride {
 
 }
 
-contract ArbitrumNativeBridge is IBidirectionalBridge {
+library ArbitrumBridgeTesting {
 
     using DomainHelpers for *;
 
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
     bytes32 private constant SEND_TO_L1_TOPIC        = keccak256("SendTxToL1(address,address,bytes)");
+    
+    function createNativeBridge(Domain memory ethereum, Domain memory arbitrumInstance) internal returns (BridgeData memory bridge) {
+        (
+            address sourceCrossChainMessenger,
+            address destinationCrossChainMessenger
+        ) = getMessengerFromChainAlias(ethereum.chain.chainAlias, arbitrumInstance.chain.chainAlias)
 
-    address public l2ToL1Sender;
+        return init(BridgeData({
+            source:                         ethereum,
+            destination:                    arbitrumInstance,
+            sourceCrossChainMessenger:      sourceCrossChainMessenger,
+            destinationCrossChainMessenger: destinationCrossChainMessenger,
+            lastSourceLogIndex:             0,
+            lastDestinationLogIndex:        0,
+            extraData:                      ""
+        }));
+    }
 
-    BridgeData public data;
+    function getMessengerFromChainAlias(
+        string memory sourceChainAlias,
+        string memory destinationChainAlias
+    ) internal pure returns (
+        address sourceCrossChainMessenger,
+        address destinationCrossChainMessenger
+    ) {
+        require(keccak256(bytes(sourceChainAlias)) == keccak256("mainnet"), "Source must be Ethereum.");
 
-    constructor(BridgeData memory _data) {
-        data = _data;
+        bytes32 name = keccak256(bytes(destinationChainAlias));
+        if (name == keccak256("arbitrum_one")) {
+            sourceCrossChainMessenger = 0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f;
+        } else if (name == keccak256("arbitrum_nova")) {
+            sourceCrossChainMessenger = 0xc4448b71118c9071Bcb9734A0EAc55D18A153949;
+        } else {
+            revert("Unsupported destination chain");
+        }
+        destinationCrossChainMessenger = 0x0000000000000000000000000000000000000064;
+    }
 
-        data.source.selectFork();
-        BridgeLike bridge = InboxLike(data.sourceCrossChainMessenger).bridge();
+    function init(BridgeData memory bridge) internal returns (BridgeData memory bridge) {
+        bridge.source.selectFork();
+        BridgeLike underlyingBridge = InboxLike(data.sourceCrossChainMessenger).bridge();
         vm.recordLogs();
-        vm.makePersistent(address(this));
 
         // Make this contract a valid outbox
-        address _rollup = bridge.rollup();
+        address _rollup = underlyingBridge.rollup();
         vm.store(
-            address(bridge),
+            address(underlyingBridge),
             bytes32(uint256(8)),
             bytes32(uint256(uint160(address(this))))
         );
-        bridge.setOutbox(address(this), true);
+        underlyingBridge.setOutbox(address(this), true);
         vm.store(
-            address(bridge),
+            address(underlyingBridge),
             bytes32(uint256(8)),
             bytes32(uint256(uint160(_rollup)))
         );
 
         // Need to replace ArbSys contract with custom code to make it compatible with revm
-        destination.selectFork();
-        bytes memory bytecode = vm.getCode("ArbitrumDomain.sol:ArbSysOverride");
+        bridge.destination.selectFork();
+        bytes memory bytecode = vm.getCode("ArbitrumBridgeTesting.sol:ArbSysOverride");
         address deployed;
         assembly {
             deployed := create(0, add(bytecode, 0x20), mload(bytecode))
         }
         vm.etch(ARB_SYS, deployed.code);
 
-        source.selectFork();
+        bridge.source.selectFork();
     }
 
-    function parseData(bytes memory orig) private pure returns (address target, bytes memory message) {
-        // FIXME - this is not robust enough, only handling messages of a specific format
-        uint256 mlen;
-        (,,target ,,,,,,,, mlen) = abi.decode(orig, (uint256, uint256, address, uint256, uint256, uint256, address, address, uint256, uint256, uint256));
-        message = new bytes(mlen);
-        for (uint256 i = 0; i < mlen; i++) {
-            message[i] = orig[i + 352];
-        }
-    }
-
-    function relayMessagesToSource(bool switchToDestinationFork) external override {
-        destination.selectFork();
+    function relayMessagesToDestination(BridgeData memory bridge, bool switchToDestinationFork) internal {
+        bridge.destination.selectFork();
 
         // Read all L1 -> L2 messages and relay them under Arbitrum fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
@@ -108,7 +129,7 @@ contract ArbitrumNativeBridge is IBidirectionalBridge {
                 // We need both the current event and the one that follows for all the relevant data
                 Vm.Log memory logWithData = logs[lastFromHostLogIndex + 1];
                 (,, address sender,,,) = abi.decode(log.data, (address, uint8, address, bytes32, uint256, uint64));
-                (address target, bytes memory message) = parseData(logWithData.data);
+                (address target, bytes memory message) = _parseData(logWithData.data);
                 vm.startPrank(sender);
                 (bool success, bytes memory response) = target.call(message);
                 vm.stopPrank();
@@ -121,12 +142,12 @@ contract ArbitrumNativeBridge is IBidirectionalBridge {
         }
 
         if (!switchToDestinationFork) {
-            source.selectFork();
+            bridge.source.selectFork();
         }
     }
 
-    function relayMessagesToSource(bool switchToSourceFork) external override {
-        source.selectFork();
+    function relayMessagesToSource(BridgeData memory bridge, bool switchToSourceFork) internal {
+        bridge.source.selectFork();
 
         // Read all L2 -> L1 messages and relay them under host fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
@@ -134,7 +155,7 @@ contract ArbitrumNativeBridge is IBidirectionalBridge {
             Vm.Log memory log = logs[lastToHostLogIndex];
             if (log.topics[0] == SEND_TO_L1_TOPIC) {
                 (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
-                l2ToL1Sender = sender;
+                //l2ToL1Sender = sender;
                 (bool success, bytes memory response) = InboxLike(data.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
                 if (!success) {
                     assembly {
@@ -145,7 +166,17 @@ contract ArbitrumNativeBridge is IBidirectionalBridge {
         }
 
         if (!switchToSourceFork) {
-            destination.selectFork();
+            bridge.destination.selectFork();
+        }
+    }
+
+    function _parseData(bytes memory orig) private pure returns (address target, bytes memory message) {
+        // FIXME - this is not robust enough, only handling messages of a specific format
+        uint256 mlen;
+        (,,target ,,,,,,,, mlen) = abi.decode(orig, (uint256, uint256, address, uint256, uint256, uint256, address, address, uint256, uint256, uint256));
+        message = new bytes(mlen);
+        for (uint256 i = 0; i < mlen; i++) {
+            message[i] = orig[i + 352];
         }
     }
 

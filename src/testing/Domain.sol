@@ -11,7 +11,7 @@ struct Domain {
 
 library DomainHelpers {
 
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     function createFork(StdChains.Chain memory chain, uint256 blockNumber) internal returns (Domain memory domain) {
         domain = Domain({

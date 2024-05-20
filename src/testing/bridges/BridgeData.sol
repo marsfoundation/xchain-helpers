@@ -11,4 +11,5 @@ struct BridgeData {
     // These are used internally for log tracking
     uint256 lastSourceLogIndex;
     uint256 lastDestinationLogIndex;
+    bytes extraData;
 }
