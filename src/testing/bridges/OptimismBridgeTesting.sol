@@ -41,10 +41,9 @@ contract ArbSysOverride {
 
 }
 
-library ArbitrumBridgeTesting {
+library OptimismBridgeTesting {
 
     using DomainHelpers for *;
-    using RecordedLogs for *;
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
@@ -124,11 +123,11 @@ library ArbitrumBridgeTesting {
 
         // Read all L1 -> L2 messages and relay them under Arbitrum fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
-        for (; bridge.lastSourceLogIndex < logs.length; bridge.lastSourceLogIndex++) {
-            Vm.Log memory log = logs[bridge.lastSourceLogIndex];
+        for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
+            Vm.Log memory log = logs[lastFromHostLogIndex];
             if (log.topics[0] == MESSAGE_DELIVERED_TOPIC) {
                 // We need both the current event and the one that follows for all the relevant data
-                Vm.Log memory logWithData = logs[bridge.lastSourceLogIndex + 1];
+                Vm.Log memory logWithData = logs[lastFromHostLogIndex + 1];
                 (,, address sender,,,) = abi.decode(log.data, (address, uint8, address, bytes32, uint256, uint64));
                 (address target, bytes memory message) = _parseData(logWithData.data);
                 vm.startPrank(sender);
@@ -151,15 +150,17 @@ library ArbitrumBridgeTesting {
         bridge.source.selectFork();
 
         // Read all L2 -> L1 messages and relay them under host fork
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SEND_TO_L1_TOPIC, address(0));
-        for (uint256 i = 0; i < logs.length; i++) {
-            Vm.Log memory log = logs[i];
-            (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
-            //l2ToL1Sender = sender;
-            (bool success, bytes memory response) = InboxLike(data.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
-            if (!success) {
-                assembly {
-                    revert(add(response, 32), mload(response))
+        Vm.Log[] memory logs = RecordedLogs.getLogs();
+        for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
+            Vm.Log memory log = logs[lastToHostLogIndex];
+            if (log.topics[0] == SEND_TO_L1_TOPIC) {
+                (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
+                //l2ToL1Sender = sender;
+                (bool success, bytes memory response) = InboxLike(data.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
+                if (!success) {
+                    assembly {
+                        revert(add(response, 32), mload(response))
+                    }
                 }
             }
         }

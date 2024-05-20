@@ -6,27 +6,25 @@ import { Vm }        from "forge-std/Vm.sol";
 import { RecordedLogs } from "src/testing/utils/RecordedLogs.sol";
 import { BridgeData }   from "./BridgeData.sol";
 
-library CCTPBridgeTesting {
-
-    bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("MessageSent(bytes)");
+library AMBBridgeTesting {
 
     using DomainHelpers for *;
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     
-    function createCircleBridge(Domain memory source, Domain memory destination) internal returns (BridgeData memory bridge) {
+    function createBridge(Domain memory source, Domain memory destination) internal returns (BridgeData memory bridge) {
         return init(BridgeData({
             source:                         ethereum,
             destination:                    arbitrumInstance,
-            sourceCrossChainMessenger:      getCircleMessengerFromChainAlias(source.chain.chainAlias),
-            destinationCrossChainMessenger: getCircleMessengerFromChainAlias(destination.chain.chainAlias),
+            sourceCrossChainMessenger:      _getMessengerFromChainAlias(source.chain.chainAlias),
+            destinationCrossChainMessenger: _getMessengerFromChainAlias(destination.chain.chainAlias),
             lastSourceLogIndex:             0,
             lastDestinationLogIndex:        0,
             extraData:                      ""
         }));
     }
 
-    function getCircleMessengerFromChainAlias(string memory chainAlias) internal pure returns (address) {
+    function getMessengerFromChainAlias(string memory chainAlias) internal pure returns (address) {
         bytes32 name = keccak256(bytes(chainAlias));
         if (name == keccak256("mainnet")) {
             return 0x0a992d191DEeC32aFe36203Ad87D7d289a738F81;
@@ -46,47 +44,15 @@ library CCTPBridgeTesting {
     }
 
     function init(BridgeData memory bridge) internal returns (BridgeData memory bridge) {
-         // Set minimum required signatures to zero for both domains
-        bridge.destination.selectFork();
-        vm.store(
-            bridge.destinationCrossChainMessenger,
-            bytes32(uint256(4)),
-            0
-        );
-        bridge.source.selectFork();
-        vm.store(
-            bridge.sourceCrossChainMessenger,
-            bytes32(uint256(4)),
-            0
-        );
-
-        vm.recordLogs();
+        
     }
 
     function relayMessagesToDestination(BridgeData memory bridge, bool switchToDestinationFork) internal {
-        bridge.destination.selectFork();
-
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(true, SENT_MESSAGE_TOPIC, address(0));
-        for (uint256 i = 0; i < logs.length; i++) {
-            bridge.destinationCrossChainMessenger.receiveMessage(abi.decode(logs[i].data, (bytes)), "");
-        }
-
-        if (!switchToDestinationFork) {
-            bridge.source.selectFork();
-        }
+        
     }
 
     function relayMessagesToSource(BridgeData memory bridge, bool switchToSourceFork) internal {
-        bridge.source.selectFork();
         
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, address(0));
-        for (uint256 i = 0; i < logs.length; i++) {
-            bridge.sourceCrossChainMessenger.receiveMessage(abi.decode(logs[i].data, (bytes)), "");
-        }
-
-        if (!switchToSourceFork) {
-            bridge.destination.selectFork();
-        }
     }
 
 }

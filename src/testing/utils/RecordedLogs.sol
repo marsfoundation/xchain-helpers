@@ -5,7 +5,7 @@ import { Vm } from "forge-std/Vm.sol";
 
 library RecordedLogs {
 
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     function getLogs() internal returns (Vm.Log[] memory) {
         string memory _logs = vm.serializeUint("RECORDED_LOGS", "a", 0); // this is the only way to get the logs from the memory object
@@ -29,6 +29,25 @@ library RecordedLogs {
         vm.serializeUint("RECORDED_LOGS", "count", count);
 
         return logs;
+    }
+
+    function ingestAndFilterLogs(BridgeData memory bridge, bool sourceToDestination, bytes32 topic, address emitter) internal pure returns (Vm.Log[] memory filteredLogs) {
+        Vm.Log[] memory logs = RecordedLogs.getLogs();
+        uint256 lastIndex = sourceToDestination ? bridge.lastSourceLogIndex : bridge.lastDestinationLogIndex;
+        uint256 pushedIndex = 0;
+
+        filteredLogs = new Vm.Log[](logs.length - lastIndex);
+
+        for (; lastIndex < logs.length; lastIndex++) {
+            Vm.Log memory log = logs[lastIndex];
+            if (log.topics[0] == topic && log.emitter == emitter) {
+                filteredLogs[pushedIndex++] = log;
+            }
+        }
+
+        if (sourceToDestination) bridge.lastSourceLogIndex = lastIndex;
+        else bridge.lastDestinationLogIndex = lastIndex;
+        filteredLogs.length = pushedIndex;
     }
 
 }
