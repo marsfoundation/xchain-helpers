@@ -6,41 +6,6 @@ import { Vm }        from "forge-std/Vm.sol";
 import { RecordedLogs } from "src/testing/utils/RecordedLogs.sol";
 import { BridgeData }   from "./BridgeData.sol";
 
-interface InboxLike {
-    function createRetryableTicket(
-        address destAddr,
-        uint256 arbTxCallValue,
-        uint256 maxSubmissionCost,
-        address submissionRefundAddress,
-        address valueRefundAddress,
-        uint256 maxGas,
-        uint256 gasPriceBid,
-        bytes calldata data
-    ) external payable returns (uint256);
-    function bridge() external view returns (BridgeLike);
-}
-
-interface BridgeLike {
-    function rollup() external view returns (address);
-    function executeCall(
-        address,
-        uint256,
-        bytes calldata
-    ) external returns (bool, bytes memory);
-    function setOutbox(address, bool) external;
-}
-
-contract ArbSysOverride {
-
-    event SendTxToL1(address sender, address target, bytes data);
-
-    function sendTxToL1(address target, bytes calldata message) external payable returns (uint256) {
-        emit SendTxToL1(msg.sender, target, message);
-        return 0;
-    }
-
-}
-
 library ArbitrumBridgeTesting {
 
     using DomainHelpers for *;
@@ -48,7 +13,6 @@ library ArbitrumBridgeTesting {
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     
     function createBridge(Domain memory source, Domain memory destination) internal returns (BridgeData memory bridge) {
-
         return init(BridgeData({
             source:                         ethereum,
             destination:                    arbitrumInstance,
