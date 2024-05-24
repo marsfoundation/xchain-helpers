@@ -103,7 +103,7 @@ library OptimismBridgeTesting {
     function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
 
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, bridge.sourceCrossChainMessenger);
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, bridge.destinationCrossChainMessenger);
         for (uint256 i = 0; i < logs.length; i++) {
             Vm.Log memory log = logs[i];
             address target = address(uint160(uint256(log.topics[1])));
