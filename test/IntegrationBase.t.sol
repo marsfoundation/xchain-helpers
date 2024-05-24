@@ -3,7 +3,8 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
 
-import { Domain } from "../src/testing/Domain.sol";
+import { Bridge }                from "src/testing/Bridge.sol";
+import { Domain, DomainHelpers } from "src/testing/Domain.sol";
 
 import { XChainForwarders } from "../src/XChainForwarders.sol";
 
@@ -23,13 +24,15 @@ contract MessageOrdering {
 
 abstract contract IntegrationBaseTest is Test {
 
+    using DomainHelpers for *;
+
     Domain mainnet;
 
     address l1Authority = makeAddr("l1Authority");
     address notL1Authority = makeAddr("notL1Authority");
 
     function setUp() public {
-        mainnet = new Domain(getChain("mainnet"));
+        mainnet = getChain("mainnet").createFork();
     }
 
 }

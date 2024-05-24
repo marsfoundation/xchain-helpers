@@ -3,9 +3,13 @@ pragma solidity >=0.8.0;
 
 import "./IntegrationBase.t.sol";
 
-import { GnosisDomain } from "../src/testing/GnosisDomain.sol";
+import { AMBBridgeTesting } from "src/testing/bridges/AMBBridgeTesting.sol";
 
-import { GnosisReceiver } from "../src/GnosisReceiver.sol";
+import { GnosisReceiver } from "src/GnosisReceiver.sol";
+
+interface IAMB {
+    function requireToPassMessage(address, bytes memory, uint256) external returns (bytes32);
+}
 
 contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
 
@@ -18,30 +22,33 @@ contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
 }
 
 contract GnosisIntegrationTest is IntegrationBaseTest {
+    
+    using AMBBridgeTesting for *;
+    using DomainHelpers    for *;
 
     function test_gnosisChain() public {
-        checkGnosisStyle(new GnosisDomain(getChain('gnosis_chain'), mainnet), 0x75Df5AF045d91108662D8080fD1FEFAd6aA0bb59);
+        checkGnosisStyle(getChain('gnosis_chain').createFork());
     }
 
-    function checkGnosisStyle(GnosisDomain gnosis, address _l2CrossDomain) public {
-        Domain host = gnosis.hostDomain();
+    function checkGnosisStyle(Domain memory gnosis) public {
+        Bridge memory bridge = AMBBridgeTesting.createGnosisBridge(mainnet, gnosis);
 
-        host.selectFork();
+        mainnet.selectFork();
 
         MessageOrdering moHost = new MessageOrdering();
         uint256 _chainId = block.chainid;
 
         gnosis.selectFork();
 
-        MessageOrderingGnosis moGnosis = new MessageOrderingGnosis(_l2CrossDomain, _chainId, l1Authority);
+        MessageOrderingGnosis moGnosis = new MessageOrderingGnosis(bridge.destinationCrossChainMessenger, _chainId, l1Authority);
 
         // Queue up some L2 -> L1 messages
-        gnosis.L2_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
+        IAMB(bridge.destinationCrossChainMessenger).requireToPassMessage(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3),
             100000
         );
-        gnosis.L2_AMB_CROSS_DOMAIN_MESSENGER().requireToPassMessage(
+       IAMB(bridge.destinationCrossChainMessenger).requireToPassMessage(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4),
             100000
@@ -50,18 +57,18 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
         assertEq(moGnosis.length(), 0);
 
         // Do not relay right away
-        host.selectFork();
+        mainnet.selectFork();
 
         // Queue up two more L1 -> L2 messages
         vm.startPrank(l1Authority);
         XChainForwarders.sendMessageGnosis(
-            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
         XChainForwarders.sendMessageGnosis(
-            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
@@ -70,13 +77,13 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         assertEq(moHost.length(), 0);
 
-        gnosis.relayFromHost(true);
+        bridge.relayMessagesToDestination(true);
 
         assertEq(moGnosis.length(), 2);
         assertEq(moGnosis.messages(0), 1);
         assertEq(moGnosis.messages(1), 2);
 
-        gnosis.relayToHost(true);
+        bridge.relayMessagesToSource(true);
 
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
@@ -85,7 +92,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
         // Validate the message receiver failure modes
         vm.startPrank(notL1Authority);
         XChainForwarders.sendMessageGnosis(
-            address(gnosis.L1_AMB_CROSS_DOMAIN_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),
             100000
@@ -94,7 +101,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
-        gnosis.relayFromHost(true);
+        bridge.relayMessagesToDestination(true);
         assertEq(moGnosis.length(), 2);   // No change
 
         gnosis.selectFork();

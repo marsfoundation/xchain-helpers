@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 
 import "./IntegrationBase.t.sol";
 
-import { CircleCCTPDomain } from "../src/testing/CircleCCTPDomain.sol";
+import { CCTPBridgeTesting } from "src/testing/bridges/CCTPBridgeTesting.sol";
 
-import { CCTPReceiver } from "../src/CCTPReceiver.sol";
+import { CCTPReceiver } from "src/CCTPReceiver.sol";
 
 contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
 
@@ -27,49 +27,48 @@ contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
 
 contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
+    using CCTPBridgeTesting for *;
+    using DomainHelpers     for *;
+
     address l2Authority = makeAddr("l2Authority");
 
     function test_avalanche() public {
-        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("avalanche"), mainnet);
-        checkCircleCCTPStyle(cctp, 1);
+        checkCircleCCTPStyle(getChain("avalanche").createFork(), 1);
     }
 
     function test_optimism() public {
-        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("optimism"), mainnet);
-        checkCircleCCTPStyle(cctp, 2);
+        checkCircleCCTPStyle(getChain("optimism").createFork(), 2);
     }
 
     function test_arbitrum_one() public {
-        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("arbitrum_one"), mainnet);
-        checkCircleCCTPStyle(cctp, 3);
+        checkCircleCCTPStyle(getChain("arbitrum_one").createFork(), 3);
     }
 
     function test_base() public {
-        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("base"), mainnet);
-        checkCircleCCTPStyle(cctp, 6);
+        checkCircleCCTPStyle(getChain("base").createFork(), 6);
     }
 
     function test_polygon() public {
-        CircleCCTPDomain cctp = new CircleCCTPDomain(getChain("polygon"), mainnet);
-        checkCircleCCTPStyle(cctp, 7);
+        checkCircleCCTPStyle(getChain("polygon").createFork(), 7);
     }
 
-    function checkCircleCCTPStyle(CircleCCTPDomain cctp, uint32 destinationDomainId) public {
-        Domain host = cctp.hostDomain();
+    function checkCircleCCTPStyle(Domain memory destination, uint32 destinationDomainId) public {
+        Bridge memory bridge = CCTPBridgeTesting.createCircleBridge(mainnet, destination);
+
         uint32 sourceDomainId = 0;  // Ethereum
 
-        host.selectFork();
+        mainnet.selectFork();
 
         MessageOrderingCCTP moHost = new MessageOrderingCCTP(
-            address(cctp.SOURCE_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             destinationDomainId,
             l2Authority
         );
 
-        cctp.selectFork();
+        destination.selectFork();
 
         MessageOrderingCCTP moCCTP = new MessageOrderingCCTP(
-            address(cctp.DESTINATION_MESSENGER()),
+            bridge.destinationCrossChainMessenger,
             sourceDomainId,
             l1Authority
         );
@@ -77,13 +76,13 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         // Queue up some L2 -> L1 messages
         vm.startPrank(l2Authority);
         XChainForwarders.sendMessageCCTP(
-            address(cctp.DESTINATION_MESSENGER()),
+            bridge.destinationCrossChainMessenger,
             sourceDomainId,
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3)
         );
         XChainForwarders.sendMessageCCTP(
-            address(cctp.DESTINATION_MESSENGER()),
+            bridge.destinationCrossChainMessenger,
             sourceDomainId,
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4)
@@ -93,7 +92,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         assertEq(moCCTP.length(), 0);
 
         // Do not relay right away
-        host.selectFork();
+        mainnet.selectFork();
 
         // Queue up two more L1 -> L2 messages
         vm.startPrank(l1Authority);
@@ -111,13 +110,13 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
         assertEq(moHost.length(), 0);
 
-        cctp.relayFromHost(true);
+        bridge.relayMessagesToDestination(true);
 
         assertEq(moCCTP.length(), 2);
         assertEq(moCCTP.messages(0), 1);
         assertEq(moCCTP.messages(1), 2);
 
-        cctp.relayToHost(true);
+        bridge.relayMessagesToSource(true);
 
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
@@ -133,9 +132,9 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         vm.stopPrank();
 
         vm.expectRevert("Receiver/invalid-sourceAuthority");
-        cctp.relayFromHost(true);
+        bridge.relayMessagesToDestination(true);
 
-        cctp.selectFork();
+        destination.selectFork();
         vm.expectRevert("Receiver/invalid-sender");
         moCCTP.push(999);
 
@@ -143,7 +142,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         moCCTP.handleReceiveMessage(0, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
 
         assertEq(moCCTP.sourceDomainId(), 0);
-        vm.prank(address(cctp.DESTINATION_MESSENGER()));
+        vm.prank(bridge.destinationCrossChainMessenger);
         vm.expectRevert("Receiver/invalid-sourceDomain");
         moCCTP.handleReceiveMessage(1, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
     }

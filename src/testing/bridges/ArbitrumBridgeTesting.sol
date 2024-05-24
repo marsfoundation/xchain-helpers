@@ -3,8 +3,9 @@ pragma solidity >=0.8.0;
 
 import { Vm }        from "forge-std/Vm.sol";
 
-import { RecordedLogs } from "src/testing/utils/RecordedLogs.sol";
-import { BridgeData }   from "./BridgeData.sol";
+import { Bridge }                from "src/testing/Bridge.sol";
+import { Domain, DomainHelpers } from "src/testing/Domain.sol";
+import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
 
 interface InboxLike {
     function createRetryableTicket(
@@ -51,13 +52,13 @@ library ArbitrumBridgeTesting {
     bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
     bytes32 private constant SEND_TO_L1_TOPIC        = keccak256("SendTxToL1(address,address,bytes)");
     
-    function createNativeBridge(Domain memory ethereum, Domain memory arbitrumInstance) internal returns (BridgeData memory bridge) {
+    function createNativeBridge(Domain memory ethereum, Domain memory arbitrumInstance) internal returns (Bridge memory bridge) {
         (
             address sourceCrossChainMessenger,
             address destinationCrossChainMessenger
-        ) = getMessengerFromChainAlias(ethereum.chain.chainAlias, arbitrumInstance.chain.chainAlias)
+        ) = getMessengerFromChainAlias(ethereum.chain.chainAlias, arbitrumInstance.chain.chainAlias);
 
-        return init(BridgeData({
+        return init(Bridge({
             source:                         ethereum,
             destination:                    arbitrumInstance,
             sourceCrossChainMessenger:      sourceCrossChainMessenger,
@@ -88,10 +89,20 @@ library ArbitrumBridgeTesting {
         destinationCrossChainMessenger = 0x0000000000000000000000000000000000000064;
     }
 
-    function init(BridgeData memory bridge) internal returns (BridgeData memory bridge) {
-        bridge.source.selectFork();
-        BridgeLike underlyingBridge = InboxLike(data.sourceCrossChainMessenger).bridge();
+    function init(Bridge memory bridge) internal returns (Bridge memory) {
         vm.recordLogs();
+
+        // Need to replace ArbSys contract with custom code to make it compatible with revm
+        bridge.destination.selectFork();
+        bytes memory bytecode = vm.getCode("ArbitrumBridgeTesting.sol:ArbSysOverride");
+        address deployed;
+        assembly {
+            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
+        }
+        vm.etch(bridge.destinationCrossChainMessenger, deployed.code);
+
+        bridge.source.selectFork();
+        BridgeLike underlyingBridge = InboxLike(bridge.sourceCrossChainMessenger).bridge();
 
         // Make this contract a valid outbox
         address _rollup = underlyingBridge.rollup();
@@ -107,26 +118,16 @@ library ArbitrumBridgeTesting {
             bytes32(uint256(uint160(_rollup)))
         );
 
-        // Need to replace ArbSys contract with custom code to make it compatible with revm
-        bridge.destination.selectFork();
-        bytes memory bytecode = vm.getCode("ArbitrumBridgeTesting.sol:ArbSysOverride");
-        address deployed;
-        assembly {
-            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-        vm.etch(ARB_SYS, deployed.code);
-
-        bridge.source.selectFork();
+        return bridge;
     }
 
-    function relayMessagesToDestination(BridgeData memory bridge, bool switchToDestinationFork) internal {
+    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
         bridge.destination.selectFork();
 
-        // Read all L1 -> L2 messages and relay them under Arbitrum fork
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; bridge.lastSourceLogIndex < logs.length; bridge.lastSourceLogIndex++) {
             Vm.Log memory log = logs[bridge.lastSourceLogIndex];
-            if (log.topics[0] == MESSAGE_DELIVERED_TOPIC) {
+            if (log.topics[0] == MESSAGE_DELIVERED_TOPIC && log.emitter == bridge.sourceCrossChainMessenger) {
                 // We need both the current event and the one that follows for all the relevant data
                 Vm.Log memory logWithData = logs[bridge.lastSourceLogIndex + 1];
                 (,, address sender,,,) = abi.decode(log.data, (address, uint8, address, bytes32, uint256, uint64));
@@ -147,16 +148,15 @@ library ArbitrumBridgeTesting {
         }
     }
 
-    function relayMessagesToSource(BridgeData memory bridge, bool switchToSourceFork) internal {
+    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
 
-        // Read all L2 -> L1 messages and relay them under host fork
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SEND_TO_L1_TOPIC, address(0));
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SEND_TO_L1_TOPIC, bridge.destinationCrossChainMessenger);
         for (uint256 i = 0; i < logs.length; i++) {
             Vm.Log memory log = logs[i];
-            (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
+            (, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
             //l2ToL1Sender = sender;
-            (bool success, bytes memory response) = InboxLike(data.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
+            (bool success, bytes memory response) = InboxLike(bridge.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
             if (!success) {
                 assembly {
                     revert(add(response, 32), mload(response))

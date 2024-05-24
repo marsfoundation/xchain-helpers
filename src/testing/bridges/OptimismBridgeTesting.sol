@@ -3,62 +3,44 @@ pragma solidity >=0.8.0;
 
 import { Vm }        from "forge-std/Vm.sol";
 
-import { RecordedLogs } from "src/testing/utils/RecordedLogs.sol";
-import { BridgeData }   from "./BridgeData.sol";
+import { Bridge }                from "src/testing/Bridge.sol";
+import { Domain, DomainHelpers } from "src/testing/Domain.sol";
+import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
 
-interface InboxLike {
-    function createRetryableTicket(
-        address destAddr,
-        uint256 arbTxCallValue,
-        uint256 maxSubmissionCost,
-        address submissionRefundAddress,
-        address valueRefundAddress,
-        uint256 maxGas,
-        uint256 gasPriceBid,
-        bytes calldata data
-    ) external payable returns (uint256);
-    function bridge() external view returns (BridgeLike);
-}
-
-interface BridgeLike {
-    function rollup() external view returns (address);
-    function executeCall(
-        address,
-        uint256,
-        bytes calldata
-    ) external returns (bool, bytes memory);
-    function setOutbox(address, bool) external;
-}
-
-contract ArbSysOverride {
-
-    event SendTxToL1(address sender, address target, bytes data);
-
-    function sendTxToL1(address target, bytes calldata message) external payable returns (uint256) {
-        emit SendTxToL1(msg.sender, target, message);
-        return 0;
-    }
-
+interface IMessenger {
+    function sendMessage(
+        address target,
+        bytes memory message,
+        uint32 gasLimit
+    ) external;
+    function relayMessage(
+        uint256 _nonce,
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _minGasLimit,
+        bytes calldata _message
+    ) external payable;
 }
 
 library OptimismBridgeTesting {
 
     using DomainHelpers for *;
+    using RecordedLogs  for *;
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    bytes32 private constant MESSAGE_DELIVERED_TOPIC = keccak256("MessageDelivered(uint256,bytes32,address,uint8,address,bytes32,uint256,uint64)");
-    bytes32 private constant SEND_TO_L1_TOPIC        = keccak256("SendTxToL1(address,address,bytes)");
+    bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("SentMessage(address,address,bytes,uint256,uint256)");
     
-    function createNativeBridge(Domain memory ethereum, Domain memory arbitrumInstance) internal returns (BridgeData memory bridge) {
+    function createNativeBridge(Domain memory ethereum, Domain memory optimismInstance) internal returns (Bridge memory bridge) {
         (
             address sourceCrossChainMessenger,
             address destinationCrossChainMessenger
-        ) = getMessengerFromChainAlias(ethereum.chain.chainAlias, arbitrumInstance.chain.chainAlias)
+        ) = getMessengerFromChainAlias(ethereum.chain.chainAlias, optimismInstance.chain.chainAlias);
 
-        return init(BridgeData({
+        return init(Bridge({
             source:                         ethereum,
-            destination:                    arbitrumInstance,
+            destination:                    optimismInstance,
             sourceCrossChainMessenger:      sourceCrossChainMessenger,
             destinationCrossChainMessenger: destinationCrossChainMessenger,
             lastSourceLogIndex:             0,
@@ -77,68 +59,40 @@ library OptimismBridgeTesting {
         require(keccak256(bytes(sourceChainAlias)) == keccak256("mainnet"), "Source must be Ethereum.");
 
         bytes32 name = keccak256(bytes(destinationChainAlias));
-        if (name == keccak256("arbitrum_one")) {
-            sourceCrossChainMessenger = 0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f;
-        } else if (name == keccak256("arbitrum_nova")) {
-            sourceCrossChainMessenger = 0xc4448b71118c9071Bcb9734A0EAc55D18A153949;
+        if (name == keccak256("optimism")) {
+            sourceCrossChainMessenger = 0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1;
+        } else if (name == keccak256("base")) {
+            sourceCrossChainMessenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
         } else {
             revert("Unsupported destination chain");
         }
-        destinationCrossChainMessenger = 0x0000000000000000000000000000000000000064;
+        destinationCrossChainMessenger = 0x4200000000000000000000000000000000000007;
     }
 
-    function init(BridgeData memory bridge) internal returns (BridgeData memory bridge) {
-        bridge.source.selectFork();
-        BridgeLike underlyingBridge = InboxLike(data.sourceCrossChainMessenger).bridge();
+    function init(Bridge memory bridge) internal returns (Bridge memory) {
         vm.recordLogs();
 
-        // Make this contract a valid outbox
-        address _rollup = underlyingBridge.rollup();
-        vm.store(
-            address(underlyingBridge),
-            bytes32(uint256(8)),
-            bytes32(uint256(uint160(address(this))))
-        );
-        underlyingBridge.setOutbox(address(this), true);
-        vm.store(
-            address(underlyingBridge),
-            bytes32(uint256(8)),
-            bytes32(uint256(uint160(_rollup)))
-        );
-
-        // Need to replace ArbSys contract with custom code to make it compatible with revm
-        bridge.destination.selectFork();
-        bytes memory bytecode = vm.getCode("ArbitrumBridgeTesting.sol:ArbSysOverride");
-        address deployed;
-        assembly {
-            deployed := create(0, add(bytecode, 0x20), mload(bytecode))
-        }
-        vm.etch(ARB_SYS, deployed.code);
-
+        // For consistency with other bridges
         bridge.source.selectFork();
+
+        return bridge;
     }
 
-    function relayMessagesToDestination(BridgeData memory bridge, bool switchToDestinationFork) internal {
+    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
         bridge.destination.selectFork();
 
-        // Read all L1 -> L2 messages and relay them under Arbitrum fork
-        Vm.Log[] memory logs = RecordedLogs.getLogs();
-        for (; lastFromHostLogIndex < logs.length; lastFromHostLogIndex++) {
-            Vm.Log memory log = logs[lastFromHostLogIndex];
-            if (log.topics[0] == MESSAGE_DELIVERED_TOPIC) {
-                // We need both the current event and the one that follows for all the relevant data
-                Vm.Log memory logWithData = logs[lastFromHostLogIndex + 1];
-                (,, address sender,,,) = abi.decode(log.data, (address, uint8, address, bytes32, uint256, uint64));
-                (address target, bytes memory message) = _parseData(logWithData.data);
-                vm.startPrank(sender);
-                (bool success, bytes memory response) = target.call(message);
-                vm.stopPrank();
-                if (!success) {
-                    assembly {
-                        revert(add(response, 32), mload(response))
-                    }
-                }
-            }
+        address malias;
+        unchecked {
+            malias = address(uint160(bridge.sourceCrossChainMessenger) + uint160(0x1111000000000000000000000000000000001111));
+        }
+
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(true, SENT_MESSAGE_TOPIC, bridge.sourceCrossChainMessenger);
+        for (uint256 i = 0; i < logs.length; i++) {
+            Vm.Log memory log = logs[i];
+            address target = address(uint160(uint256(log.topics[1])));
+            (address sender, bytes memory message, uint256 nonce, uint256 gasLimit) = abi.decode(log.data, (address, bytes, uint256, uint256));
+            vm.prank(malias);
+            IMessenger(bridge.destinationCrossChainMessenger).relayMessage(nonce, sender, target, 0, gasLimit, message);
         }
 
         if (!switchToDestinationFork) {
@@ -146,37 +100,37 @@ library OptimismBridgeTesting {
         }
     }
 
-    function relayMessagesToSource(BridgeData memory bridge, bool switchToSourceFork) internal {
+    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
 
-        // Read all L2 -> L1 messages and relay them under host fork
-        Vm.Log[] memory logs = RecordedLogs.getLogs();
-        for (; lastToHostLogIndex < logs.length; lastToHostLogIndex++) {
-            Vm.Log memory log = logs[lastToHostLogIndex];
-            if (log.topics[0] == SEND_TO_L1_TOPIC) {
-                (address sender, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
-                //l2ToL1Sender = sender;
-                (bool success, bytes memory response) = InboxLike(data.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, bridge.sourceCrossChainMessenger);
+        for (uint256 i = 0; i < logs.length; i++) {
+            Vm.Log memory log = logs[i];
+            address target = address(uint160(uint256(log.topics[1])));
+                (address sender, bytes memory message,,) = abi.decode(log.data, (address, bytes, uint256, uint256));
+                // Set xDomainMessageSender
+                vm.store(
+                    bridge.sourceCrossChainMessenger,
+                    bytes32(uint256(204)),
+                    bytes32(uint256(uint160(sender)))
+                );
+                vm.startPrank(bridge.sourceCrossChainMessenger);
+                (bool success, bytes memory response) = target.call(message);
+                vm.stopPrank();
+                vm.store(
+                    bridge.sourceCrossChainMessenger,
+                    bytes32(uint256(204)),
+                    bytes32(uint256(0))
+                );
                 if (!success) {
                     assembly {
                         revert(add(response, 32), mload(response))
                     }
                 }
-            }
         }
 
         if (!switchToSourceFork) {
             bridge.destination.selectFork();
-        }
-    }
-
-    function _parseData(bytes memory orig) private pure returns (address target, bytes memory message) {
-        // FIXME - this is not robust enough, only handling messages of a specific format
-        uint256 mlen;
-        (,,target ,,,,,,,, mlen) = abi.decode(orig, (uint256, uint256, address, uint256, uint256, uint256, address, address, uint256, uint256, uint256));
-        message = new bytes(mlen);
-        for (uint256 i = 0; i < mlen; i++) {
-            message[i] = orig[i + 352];
         }
     }
 

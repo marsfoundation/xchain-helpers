@@ -3,21 +3,27 @@ pragma solidity >=0.8.0;
 
 import { Vm }        from "forge-std/Vm.sol";
 
-import { RecordedLogs } from "src/testing/utils/RecordedLogs.sol";
-import { BridgeData }   from "./BridgeData.sol";
+import { Bridge }                from "src/testing/Bridge.sol";
+import { Domain, DomainHelpers } from "src/testing/Domain.sol";
+import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
+
+interface IMessenger {
+    function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool success);
+}
 
 library CCTPBridgeTesting {
 
     bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("MessageSent(bytes)");
 
     using DomainHelpers for *;
+    using RecordedLogs  for *;
 
     Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     
-    function createCircleBridge(Domain memory source, Domain memory destination) internal returns (BridgeData memory bridge) {
-        return init(BridgeData({
-            source:                         ethereum,
-            destination:                    arbitrumInstance,
+    function createCircleBridge(Domain memory source, Domain memory destination) internal returns (Bridge memory bridge) {
+        return init(Bridge({
+            source:                         source,
+            destination:                    destination,
             sourceCrossChainMessenger:      getCircleMessengerFromChainAlias(source.chain.chainAlias),
             destinationCrossChainMessenger: getCircleMessengerFromChainAlias(destination.chain.chainAlias),
             lastSourceLogIndex:             0,
@@ -45,7 +51,7 @@ library CCTPBridgeTesting {
         }
     }
 
-    function init(BridgeData memory bridge) internal returns (BridgeData memory bridge) {
+    function init(Bridge memory bridge) internal returns (Bridge memory) {
          // Set minimum required signatures to zero for both domains
         bridge.destination.selectFork();
         vm.store(
@@ -61,14 +67,16 @@ library CCTPBridgeTesting {
         );
 
         vm.recordLogs();
+
+        return bridge;
     }
 
-    function relayMessagesToDestination(BridgeData memory bridge, bool switchToDestinationFork) internal {
+    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
         bridge.destination.selectFork();
 
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(true, SENT_MESSAGE_TOPIC, address(0));
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(true, SENT_MESSAGE_TOPIC, bridge.sourceCrossChainMessenger);
         for (uint256 i = 0; i < logs.length; i++) {
-            bridge.destinationCrossChainMessenger.receiveMessage(abi.decode(logs[i].data, (bytes)), "");
+            IMessenger(bridge.destinationCrossChainMessenger).receiveMessage(abi.decode(logs[i].data, (bytes)), "");
         }
 
         if (!switchToDestinationFork) {
@@ -76,12 +84,12 @@ library CCTPBridgeTesting {
         }
     }
 
-    function relayMessagesToSource(BridgeData memory bridge, bool switchToSourceFork) internal {
+    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
         
-        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, address(0));
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, bridge.destinationCrossChainMessenger);
         for (uint256 i = 0; i < logs.length; i++) {
-            bridge.sourceCrossChainMessenger.receiveMessage(abi.decode(logs[i].data, (bytes)), "");
+            IMessenger(bridge.sourceCrossChainMessenger).receiveMessage(abi.decode(logs[i].data, (bytes)), "");
         }
 
         if (!switchToSourceFork) {

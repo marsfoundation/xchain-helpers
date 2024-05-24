@@ -16,7 +16,7 @@ library DomainHelpers {
     function createFork(StdChains.Chain memory chain, uint256 blockNumber) internal returns (Domain memory domain) {
         domain = Domain({
             chain:  chain,
-            forkId: vm.createFork(chain.rpcUrl, blockNum)
+            forkId: vm.createFork(chain.rpcUrl, blockNumber)
         });
     }
 
@@ -30,7 +30,7 @@ library DomainHelpers {
     function createSelectFork(StdChains.Chain memory chain, uint256 blockNumber) internal returns (Domain memory domain) {
         domain = Domain({
             chain:  chain,
-            forkId: vm.createSelectFork(chain.rpcUrl, blockNum)
+            forkId: vm.createSelectFork(chain.rpcUrl, blockNumber)
         });
         _assertExpectedRpc(chain);
     }
@@ -45,14 +45,14 @@ library DomainHelpers {
 
     function selectFork(Domain memory domain) internal {
         vm.selectFork(domain.forkId);
-        _assertExpectedRpc(domain);
+        _assertExpectedRpc(domain.chain);
     }
 
     function rollFork(Domain memory domain, uint256 blockNumber) internal {
         vm.rollFork(domain.forkId, blockNumber);
     }
 
-    function _assertExpectedRpc(StdChains.Chain memory chain) private {
+    function _assertExpectedRpc(StdChains.Chain memory chain) private view {
         require(block.chainid == chain.chainId, string(abi.encodePacked(chain.chainAlias, " is pointing to the wrong RPC endpoint '", chain.rpcUrl, "'")));
     }
 
