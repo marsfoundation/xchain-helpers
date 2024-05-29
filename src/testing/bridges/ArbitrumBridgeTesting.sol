@@ -7,6 +7,8 @@ import { Bridge }                from "src/testing/Bridge.sol";
 import { Domain, DomainHelpers } from "src/testing/Domain.sol";
 import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
 
+import {console} from "./../../../lib/forge-std/src/console.sol";
+
 interface InboxLike {
     function createRetryableTicket(
         address destAddr,
@@ -103,6 +105,7 @@ library ArbitrumBridgeTesting {
 
         bridge.source.selectFork();
         BridgeLike underlyingBridge = InboxLike(bridge.sourceCrossChainMessenger).bridge();
+        bridge.extraData = abi.encode(address(underlyingBridge));
 
         // Make this contract a valid outbox
         address _rollup = underlyingBridge.rollup();
@@ -127,7 +130,7 @@ library ArbitrumBridgeTesting {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         for (; bridge.lastSourceLogIndex < logs.length; bridge.lastSourceLogIndex++) {
             Vm.Log memory log = logs[bridge.lastSourceLogIndex];
-            if (log.topics[0] == MESSAGE_DELIVERED_TOPIC && log.emitter == bridge.sourceCrossChainMessenger) {
+            if (log.topics[0] == MESSAGE_DELIVERED_TOPIC && log.emitter == abi.decode(bridge.extraData, (address))) {
                 // We need both the current event and the one that follows for all the relevant data
                 Vm.Log memory logWithData = logs[bridge.lastSourceLogIndex + 1];
                 (,, address sender,,,) = abi.decode(log.data, (address, uint8, address, bytes32, uint256, uint64));
