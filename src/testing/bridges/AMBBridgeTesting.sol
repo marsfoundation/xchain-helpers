@@ -98,13 +98,8 @@ library AMBBridgeTesting {
             Vm.Log memory log = logs[i];
             bytes memory messageToRelay = abi.decode(log.data, (bytes));
             if (log.topics[0] == USER_REQUEST_FOR_AFFIRMATION_TOPIC) {
-                IValidatorContract validatorContract = IValidatorContract(IAMB(amb).validatorContract());
-                address[] memory validators = validatorContract.validatorList();
-                uint256 requiredSignatures = validatorContract.requiredSignatures();
-                for (uint256 o = 0; o < requiredSignatures; o++) {
-                    vm.prank(validators[o]);
-                    IAMB(amb).executeAffirmation(messageToRelay);
-                }
+                vm.prank(IValidatorContract(IAMB(amb).validatorContract()).validatorList()[0]);
+                IAMB(amb).executeAffirmation(messageToRelay);
             } else if (log.topics[0] == USER_REQUEST_FOR_SIGNATURE_TOPIC) {
                 IAMB(amb).executeSignatures(messageToRelay, abi.encodePacked(uint256(0)));
             }
