@@ -6,17 +6,7 @@ import "./IntegrationBase.t.sol";
 import { ArbitrumBridgeTesting, ArbSysOverride } from "src/testing/bridges/ArbitrumBridgeTesting.sol";
 
 import { ArbitrumForwarder } from "src/forwarders/ArbitrumForwarder.sol";
-import { ArbitrumReceiver }  from "src/ArbitrumReceiver.sol";
-
-contract MessageOrderingArbitrum is MessageOrdering, ArbitrumReceiver {
-
-    constructor(address _l1Authority) ArbitrumReceiver(_l1Authority) {}
-
-    function push(uint256 messageId) public override onlyCrossChainMessage {
-        super.push(messageId);
-    }
-
-}
+import { ArbitrumReceiver }  from "src/receivers/ArbitrumReceiver.sol";
 
 contract ArbitrumIntegrationTest is IntegrationBaseTest {
 
@@ -31,40 +21,38 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         checkArbitrumStyle(getChain("arbitrum_nova").createFork());
     }
 
-    function checkArbitrumStyle(Domain memory arbitrum) public {
-        Bridge memory bridge = ArbitrumBridgeTesting.createNativeBridge(mainnet, arbitrum);
+    function initDestinationReceiver(address target) internal virtual returns (address receiver) {
+        return new ArbitrumReceiver(sourceAuthority, target);
+    }
 
-        deal(l1Authority, 100 ether);
-        deal(notL1Authority, 100 ether);
+    function checkArbitrumStyle(Domain memory _destination) internal {
+        initDestination(_destination);
 
-        mainnet.selectFork();
+        Bridge memory bridge = ArbitrumBridgeTesting.createNativeBridge(source, destination);
 
-        MessageOrdering moHost = new MessageOrdering();
-
-        arbitrum.selectFork();
-
-        MessageOrdering moArbitrum = new MessageOrderingArbitrum(l1Authority);
+        deal(sourceAuthority, 100 ether);
+        deal(randomAddress,   100 ether);
 
         // Queue up some L2 -> L1 messages
         ArbitrumForwarder.sendMessageL2toL1(
-            address(moHost),
+            address(moSource),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3)
         );
         ArbitrumForwarder.sendMessageL2toL1(
-            address(moHost),
+            address(moSource),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4)
         );
 
-        assertEq(moArbitrum.length(), 0);
+        assertEq(moDestination.length(), 0);
 
         // Do not relay right away
-        mainnet.selectFork();
+        source.selectFork();
 
         // Queue up two more L1 -> L2 messages
-        vm.startPrank(l1Authority);
+        vm.startPrank(sourceAuthority);
         ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
-            address(moArbitrum),
+            address(moDestination),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000,
             1 gwei,
@@ -72,7 +60,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         );
         ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
-            address(moArbitrum),
+            address(moDestination),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000,
             1 gwei,
@@ -80,25 +68,25 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         );
         vm.stopPrank();
 
-        assertEq(moHost.length(), 0);
+        assertEq(moSource.length(), 0);
 
         bridge.relayMessagesToDestination(true);
 
-        assertEq(moArbitrum.length(), 2);
-        assertEq(moArbitrum.messages(0), 1);
-        assertEq(moArbitrum.messages(1), 2);
+        assertEq(moDestination.length(), 2);
+        assertEq(moDestination.messages(0), 1);
+        assertEq(moDestination.messages(1), 2);
 
         bridge.relayMessagesToSource(true);
 
-        assertEq(moHost.length(), 2);
-        assertEq(moHost.messages(0), 3);
-        assertEq(moHost.messages(1), 4);
+        assertEq(moSource.length(), 2);
+        assertEq(moSource.messages(0), 3);
+        assertEq(moSource.messages(1), 4);
 
         // Validate the message receiver failure mode
         vm.startPrank(notL1Authority);
         ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
-            address(moArbitrum),
+            address(moDestination),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),
             100000,
             1 gwei,
@@ -106,7 +94,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         );
         vm.stopPrank();
 
-        vm.expectRevert("Receiver/invalid-l1Authority");
+        vm.expectRevert("ArbitrumReceiver/invalid-l1Authority");
         bridge.relayMessagesToDestination(true);
     }
 

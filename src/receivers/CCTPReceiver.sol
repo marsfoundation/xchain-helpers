@@ -2,32 +2,26 @@
 pragma solidity ^0.8.0;
 
 /**
- * @title CCTPReceiver
+ * @title  CCTPReceiver
  * @notice Receive messages from CCTP-style bridge.
  */
-abstract contract CCTPReceiver {
+contract CCTPReceiver {
 
     address public immutable destinationMessenger;
     uint32  public immutable sourceDomainId;
     address public immutable sourceAuthority;
+    address public immutable target;
 
     constructor(
         address _destinationMessenger,
         uint32  _sourceDomainId,
-        address _sourceAuthority
+        address _sourceAuthority,
+        address _target
     ) {
         destinationMessenger = _destinationMessenger;
         sourceDomainId       = _sourceDomainId;
         sourceAuthority      = _sourceAuthority;
-    }
-
-    function _onlyCrossChainMessage() internal view {
-        require(msg.sender == address(this), "Receiver/invalid-sender");
-    }
-
-    modifier onlyCrossChainMessage() {
-        _onlyCrossChainMessage();
-        _;
+        target               = _target;
     }
 
     function handleReceiveMessage(
@@ -35,11 +29,11 @@ abstract contract CCTPReceiver {
         bytes32 sender,
         bytes calldata messageBody
     ) external returns (bool) {
-        require(msg.sender == destinationMessenger,                   "Receiver/invalid-sender");
-        require(sourceDomainId == sourceDomain,                       "Receiver/invalid-sourceDomain");
-        require(sender == bytes32(uint256(uint160(sourceAuthority))), "Receiver/invalid-sourceAuthority");
+        require(msg.sender == destinationMessenger,                   "CCTPReceiver/invalid-sender");
+        require(sourceDomainId == sourceDomain,                       "CCTPReceiver/invalid-sourceDomain");
+        require(sender == bytes32(uint256(uint160(sourceAuthority))), "CCTPReceiver/invalid-sourceAuthority");
 
-        (bool success, bytes memory ret) = address(this).call(messageBody);
+        (bool success, bytes memory ret) = target.call(messageBody);
         if (!success) {
             assembly {
                 revert(add(ret, 0x20), mload(ret))

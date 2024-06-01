@@ -4,34 +4,13 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { CCTPBridgeTesting } from "src/testing/bridges/CCTPBridgeTesting.sol";
-
-import { CCTPForwarder } from "src/forwarders/CCTPForwarder.sol";
-import { CCTPReceiver }  from "src/CCTPReceiver.sol";
-
-contract MessageOrderingCCTP is MessageOrdering, CCTPReceiver {
-
-    constructor(
-        address _destinationMessenger,
-        uint32  _sourceDomainId,
-        address _sourceAuthority
-    ) CCTPReceiver(
-        _destinationMessenger,
-        _sourceDomainId,
-        _sourceAuthority
-    ) {}
-
-    function push(uint256 messageId) public override onlyCrossChainMessage {
-        super.push(messageId);
-    }
-
-}
+import { CCTPForwarder }     from "src/forwarders/CCTPForwarder.sol";
+import { CCTPReceiver }      from "src/CCTPReceiver.sol";
 
 contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
     using CCTPBridgeTesting for *;
     using DomainHelpers     for *;
-
-    address l2Authority = makeAddr("l2Authority");
 
     function test_avalanche() public {
         checkCircleCCTPStyle(getChain("avalanche").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_AVALANCHE);
@@ -53,8 +32,14 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         checkCircleCCTPStyle(getChain("polygon").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_POLYGON_POS);
     }
 
-    function checkCircleCCTPStyle(Domain memory destination, uint32 destinationDomainId) public {
-        Bridge memory bridge = CCTPBridgeTesting.createCircleBridge(mainnet, destination);
+    function initDestinationReceiver(address target) internal virtual returns (address receiver) {
+        return new CCTPReceiver(sourceAuthority, target);
+    }
+
+    function checkCircleCCTPStyle(Domain memory _destination, uint32 destinationDomainId) public {
+        initDestination(_destination);
+
+        Bridge memory bridge = CCTPBridgeTesting.createCircleBridge(source, destination);
 
         uint32 sourceDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_ETHEREUM;
 
@@ -74,7 +59,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
             l1Authority
         );
 
-        // Queue up some L2 -> L1 messages
+        // Queue up some Destination -> Source messages
         vm.startPrank(l2Authority);
         CCTPForwarder.sendMessage(
             bridge.destinationCrossChainMessenger,
@@ -95,7 +80,7 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         // Do not relay right away
         mainnet.selectFork();
 
-        // Queue up two more L1 -> L2 messages
+        // Queue up two more Source -> Destination messages
         vm.startPrank(l1Authority);
         CCTPForwarder.sendMessage(
             bridge.sourceCrossChainMessenger,

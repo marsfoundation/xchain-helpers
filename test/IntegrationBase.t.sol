@@ -8,14 +8,21 @@ import { Domain, DomainHelpers } from "src/testing/Domain.sol";
 
 contract MessageOrdering {
 
+    address   public receiver;
     uint256[] public messages;
 
-    function push(uint256 messageId) public virtual {
+    function push(uint256 messageId) external {
+        require(msg.sender == receiver, "only-receiver");
+
         messages.push(messageId);
     }
 
     function length() public view returns (uint256) {
         return messages.length;
+    }
+
+    function setReceiver(address _receiver) external {
+        receiver = _receiver;
     }
 
 }
@@ -24,13 +31,32 @@ abstract contract IntegrationBaseTest is Test {
 
     using DomainHelpers for *;
 
-    Domain mainnet;
+    address sourceAuthority      = makeAddr("sourceAuthority");
+    address destinationAuthority = makeAddr("destinationAuthority");
+    address randomAddress        = makeAddr("randomAddress");
 
-    address l1Authority = makeAddr("l1Authority");
-    address notL1Authority = makeAddr("notL1Authority");
+    Domain source;
+    Domain destination;
+
+    MessageOrdering moSource;
+    MessageOrdering moDestination;
 
     function setUp() public {
-        mainnet = getChain("mainnet").createFork();
+        source = getChain("mainnet").createFork();
+
+        source.selectFork();
+        moSource = new MessageOrdering();
     }
+
+    function initDestination(Domain memory _destination) internal {
+        destination = _destination;
+
+        destination.selectFork();
+        moDestination = new MessageOrdering();
+
+        moDestination.setReceiver(initDestinationReceiver(address(moDestination)));
+    }
+
+    function initDestinationReceiver(address target) internal virtual returns (address receiver);
 
 }
