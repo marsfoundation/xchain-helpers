@@ -6,8 +6,6 @@ import "forge-std/Test.sol";
 import { Bridge }                from "src/testing/Bridge.sol";
 import { Domain, DomainHelpers } from "src/testing/Domain.sol";
 
-import { XChainForwarders } from "../src/XChainForwarders.sol";
-
 contract MessageOrdering {
 
     uint256[] public messages;

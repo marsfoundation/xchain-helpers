@@ -5,11 +5,8 @@ import "./IntegrationBase.t.sol";
 
 import { AMBBridgeTesting } from "src/testing/bridges/AMBBridgeTesting.sol";
 
+import { AMBForwarder }   from "src/forwarders/AMBForwarder.sol";
 import { GnosisReceiver } from "src/GnosisReceiver.sol";
-
-interface IAMB {
-    function requireToPassMessage(address, bytes memory, uint256) external returns (bytes32);
-}
 
 contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
 
@@ -42,13 +39,13 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         MessageOrderingGnosis moGnosis = new MessageOrderingGnosis(bridge.destinationCrossChainMessenger, _chainId, l1Authority);
 
-        // Queue up some L2 -> L1 messages
-        IAMB(bridge.destinationCrossChainMessenger).requireToPassMessage(
+        // Queue up some Gnosis -> Ethereum messages
+        AMBForwarder.sendMessageGnosisChainToEthereum(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3),
             100000
         );
-       IAMB(bridge.destinationCrossChainMessenger).requireToPassMessage(
+        AMBForwarder.sendMessageGnosisChainToEthereum(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4),
             100000
@@ -59,16 +56,14 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
         // Do not relay right away
         mainnet.selectFork();
 
-        // Queue up two more L1 -> L2 messages
+        // Queue up two more Ethereum -> Gnosis messages
         vm.startPrank(l1Authority);
-        XChainForwarders.sendMessageGnosis(
-            bridge.sourceCrossChainMessenger,
+        AMBForwarder.sendMessageEthereumToGnosisChain(
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
-        XChainForwarders.sendMessageGnosis(
-            bridge.sourceCrossChainMessenger,
+        AMBForwarder.sendMessageEthereumToGnosisChain(
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
@@ -91,8 +86,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         // Validate the message receiver failure modes
         vm.startPrank(notL1Authority);
-        XChainForwarders.sendMessageGnosis(
-            bridge.sourceCrossChainMessenger,
+        AMBForwarder.sendMessageEthereumToGnosisChain(
             address(moGnosis),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),
             100000

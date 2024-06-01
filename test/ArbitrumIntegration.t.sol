@@ -5,7 +5,8 @@ import "./IntegrationBase.t.sol";
 
 import { ArbitrumBridgeTesting, ArbSysOverride } from "src/testing/bridges/ArbitrumBridgeTesting.sol";
 
-import { ArbitrumReceiver } from "src/ArbitrumReceiver.sol";
+import { ArbitrumForwarder } from "src/forwarders/ArbitrumForwarder.sol";
+import { ArbitrumReceiver }  from "src/ArbitrumReceiver.sol";
 
 contract MessageOrderingArbitrum is MessageOrdering, ArbitrumReceiver {
 
@@ -45,11 +46,11 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         MessageOrdering moArbitrum = new MessageOrderingArbitrum(l1Authority);
 
         // Queue up some L2 -> L1 messages
-        ArbSysOverride(bridge.destinationCrossChainMessenger).sendTxToL1(
+        ArbitrumForwarder.sendMessageL2toL1(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3)
         );
-        ArbSysOverride(bridge.destinationCrossChainMessenger).sendTxToL1(
+        ArbitrumForwarder.sendMessageL2toL1(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4)
         );
@@ -61,7 +62,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
 
         // Queue up two more L1 -> L2 messages
         vm.startPrank(l1Authority);
-        XChainForwarders.sendMessageArbitrum(
+        ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             address(moArbitrum),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
@@ -69,7 +70,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
             1 gwei,
             block.basefee + 10 gwei
         );
-        XChainForwarders.sendMessageArbitrum(
+        ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             address(moArbitrum),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
@@ -95,7 +96,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
 
         // Validate the message receiver failure mode
         vm.startPrank(notL1Authority);
-        XChainForwarders.sendMessageArbitrum(
+        ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             address(moArbitrum),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),

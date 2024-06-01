@@ -5,7 +5,8 @@ import "./IntegrationBase.t.sol";
 
 import { OptimismBridgeTesting, IMessenger } from "src/testing/bridges/OptimismBridgeTesting.sol";
 
-import { OptimismReceiver } from "src/OptimismReceiver.sol";
+import { OptimismForwarder } from "src/forwarders/OptimismForwarder.sol";
+import { OptimismReceiver }  from "src/OptimismReceiver.sol";
 
 contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
 
@@ -44,12 +45,12 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         MessageOrdering moOptimism = new MessageOrderingOptimism(l1Authority);
 
         // Queue up some L2 -> L1 messages
-        IMessenger(bridge.destinationCrossChainMessenger).sendMessage(
+        OptimismForwarder.sendMessageL2toL1(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3),
             100000
         );
-        IMessenger(bridge.destinationCrossChainMessenger).sendMessage(
+        OptimismForwarder.sendMessageL2toL1(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4),
             100000
@@ -62,13 +63,13 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         // Queue up two more L1 -> L2 messages
         vm.startPrank(l1Authority);
-        XChainForwarders.sendMessageOptimism(
+        OptimismForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
-        XChainForwarders.sendMessageOptimism(
+        OptimismForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
@@ -92,7 +93,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         // Validate the message receiver failure modes
         vm.startPrank(notL1Authority);
-        XChainForwarders.sendMessageOptimism(
+        OptimismForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),
