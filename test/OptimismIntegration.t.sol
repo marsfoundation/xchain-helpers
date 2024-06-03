@@ -3,20 +3,9 @@ pragma solidity >=0.8.0;
 
 import "./IntegrationBase.t.sol";
 
-import { OptimismBridgeTesting, IMessenger } from "src/testing/bridges/OptimismBridgeTesting.sol";
-
-import { OptimismForwarder } from "src/forwarders/OptimismForwarder.sol";
-import { OptimismReceiver }  from "src/OptimismReceiver.sol";
-
-contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
-
-    constructor(address _l1Authority) OptimismReceiver(_l1Authority) {}
-
-    function push(uint256 messageId) public override onlyCrossChainMessage {
-        super.push(messageId);
-    }
-
-}
+import { OptimismBridgeTesting } from "src/testing/bridges/OptimismBridgeTesting.sol";
+import { OptimismForwarder }     from "src/forwarders/OptimismForwarder.sol";
+import { OptimismReceiver }      from "src/receivers/OptimismReceiver.sol";
 
 contract OptimismIntegrationTest is IntegrationBaseTest {
 
@@ -25,90 +14,73 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
     event FailedRelayedMessage(bytes32);
 
-    function test_optimism() public {
-        checkOptimismStyle(getChain("optimism").createFork());
-    }
+    // Use Arbitrum One for failure test as the code logic is the same
 
-    function test_base() public {
-        checkOptimismStyle(getChain("base").createFork());
-    }
+    function test_invalidSourceAuthority() public {
+        initBaseContracts(getChain("optimism").createFork());
 
-    function checkOptimismStyle(Domain memory optimism) public {
-        Bridge memory bridge = OptimismBridgeTesting.createNativeBridge(mainnet, optimism);
-
-        mainnet.selectFork();
-
-        MessageOrdering moHost = new MessageOrdering();
-
-        optimism.selectFork();
-
-        MessageOrdering moOptimism = new MessageOrderingOptimism(l1Authority);
-
-        // Queue up some L2 -> L1 messages
-        OptimismForwarder.sendMessageL2toL1(
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 3),
-            100000
-        );
-        OptimismForwarder.sendMessageL2toL1(
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 4),
-            100000
-        );
-
-        assertEq(moOptimism.length(), 0);
-
-        // Do not relay right away
-        mainnet.selectFork();
-
-        // Queue up two more L1 -> L2 messages
-        vm.startPrank(l1Authority);
-        OptimismForwarder.sendMessageL1toL2(
-            bridge.sourceCrossChainMessenger,
-            address(moOptimism),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 1),
-            100000
-        );
-        OptimismForwarder.sendMessageL1toL2(
-            bridge.sourceCrossChainMessenger,
-            address(moOptimism),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 2),
-            100000
-        );
-        vm.stopPrank();
-
-        assertEq(moHost.length(), 0);
-
-        bridge.relayMessagesToDestination(true);
-
-        assertEq(moOptimism.length(), 2);
-        assertEq(moOptimism.messages(0), 1);
-        assertEq(moOptimism.messages(1), 2);
-
-        bridge.relayMessagesToSource(true);
-
-        assertEq(moHost.length(), 2);
-        assertEq(moHost.messages(0), 3);
-        assertEq(moHost.messages(1), 4);
-
-        // Validate the message receiver failure modes
-        vm.startPrank(notL1Authority);
-        OptimismForwarder.sendMessageL1toL2(
-            bridge.sourceCrossChainMessenger,
-            address(moOptimism),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 999),
-            100000
-        );
+        vm.startPrank(randomAddress);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
         vm.stopPrank();
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
+        assertEq(moDestination.length(), 0);
         bridge.relayMessagesToDestination(true);
-        assertEq(moOptimism.length(), 2);   // No change
+        assertEq(moDestination.length(), 0);
+    }
 
-        optimism.selectFork();
-        vm.expectRevert("Receiver/invalid-sender");
-        moOptimism.push(999);
+    function test_invalidSender() public {
+        initBaseContracts(getChain("optimism").createFork());
+
+        vm.prank(randomAddress);
+        vm.expectRevert("OptimismReceiver/invalid-sender");
+        OptimismReceiver(destinationReceiver).forward(abi.encodeCall(MessageOrdering.push, (1)));
+    }
+
+    function test_optimism() public {
+        runCrossChainTests(getChain("optimism").createFork());
+    }
+
+    function test_base() public {
+        runCrossChainTests(getChain("base").createFork());
+    }
+
+    function initSourceReceiver() internal override pure returns (address) {
+        return address(0);
+    }
+
+    function initDestinationReceiver() internal override returns (address) {
+        return address(new OptimismReceiver(sourceAuthority, address(moDestination)));
+    }
+
+    function initBridgeTesting() internal override returns (Bridge memory) {
+        return OptimismBridgeTesting.createNativeBridge(source, destination);
+    }
+
+    function queueSourceToDestination(bytes memory message) internal override {
+        OptimismForwarder.sendMessageL1toL2(
+            bridge.sourceCrossChainMessenger,
+            destinationReceiver,
+            abi.encodeCall(OptimismReceiver.forward, (message)),
+            100000
+        );
+    }
+
+    function queueDestinationToSource(bytes memory message) internal override {
+        OptimismForwarder.sendMessageL2toL1(
+            address(moSource),  // No receiver so send directly to the message ordering contract
+            message,
+            100000
+        );
+    }
+
+    function relaySourceToDestination() internal override {
+        bridge.relayMessagesToDestination(true);
+    }
+
+    function relayDestinationToSource() internal override {
+        bridge.relayMessagesToSource(true);
     }
 
 }

@@ -12,7 +12,8 @@ contract MessageOrdering {
     uint256[] public messages;
 
     function push(uint256 messageId) external {
-        require(msg.sender == receiver, "only-receiver");
+        // Null receiver means there is no code for this path so we ignore the check
+        require(receiver == address(0) || msg.sender == receiver, "only-receiver");
 
         messages.push(messageId);
     }
@@ -41,22 +42,77 @@ abstract contract IntegrationBaseTest is Test {
     MessageOrdering moSource;
     MessageOrdering moDestination;
 
-    function setUp() public {
+    address sourceReceiver;
+    address destinationReceiver;
+
+    Bridge bridge;
+
+    function setUp() public virtual {
         source = getChain("mainnet").createFork();
+    }
+
+    function initBaseContracts(Domain memory _destination) internal {
+        destination = _destination;
 
         source.selectFork();
         moSource = new MessageOrdering();
-    }
-
-    function initDestination(Domain memory _destination) internal {
-        destination = _destination;
+        sourceReceiver = initSourceReceiver();
+        moSource.setReceiver(sourceReceiver);
 
         destination.selectFork();
         moDestination = new MessageOrdering();
+        destinationReceiver = initDestinationReceiver();
+        moDestination.setReceiver(destinationReceiver);
 
-        moDestination.setReceiver(initDestinationReceiver(address(moDestination)));
+        bridge = initBridgeTesting();
+
+        // Default to source fork as it's an obvious default
+        source.selectFork();
     }
 
-    function initDestinationReceiver(address target) internal virtual returns (address receiver);
+    function runCrossChainTests(Domain memory _destination) internal {
+        initBaseContracts(_destination);
+
+        destination.selectFork();
+
+        // Queue up some Destination -> Source messages
+        vm.startPrank(sourceAuthority);
+        queueDestinationToSource(abi.encodeCall(MessageOrdering.push, (3)));
+        queueDestinationToSource(abi.encodeCall(MessageOrdering.push, (4)));
+        vm.stopPrank();
+
+        assertEq(moDestination.length(), 0);
+
+        // Do not relay right away
+        source.selectFork();
+
+        // Queue up two more Source -> Destination messages
+        vm.startPrank(sourceAuthority);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (2)));
+        vm.stopPrank();
+
+        assertEq(moSource.length(), 0);
+
+        relaySourceToDestination();
+
+        assertEq(moDestination.length(), 2);
+        assertEq(moDestination.messages(0), 1);
+        assertEq(moDestination.messages(1), 2);
+
+        relayDestinationToSource();
+
+        assertEq(moSource.length(), 2);
+        assertEq(moSource.messages(0), 3);
+        assertEq(moSource.messages(1), 4);
+    }
+
+    function initSourceReceiver() internal virtual returns (address);
+    function initDestinationReceiver() internal virtual returns (address);
+    function initBridgeTesting() internal virtual returns (Bridge memory);
+    function queueSourceToDestination(bytes memory message) internal virtual;
+    function queueDestinationToSource(bytes memory message) internal virtual;
+    function relaySourceToDestination() internal virtual;
+    function relayDestinationToSource() internal virtual;
 
 }

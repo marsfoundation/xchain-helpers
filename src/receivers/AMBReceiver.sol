@@ -13,26 +13,26 @@ interface IArbitraryMessagingBridge {
 contract AMBReceiver {
 
     IArbitraryMessagingBridge public immutable amb;
-    bytes32                   public immutable chainId;
+    bytes32                   public immutable sourceChainId;
     address                   public immutable sourceAuthority;
     address                   public immutable target;
 
     constructor(
         address _amb,
-        uint256 _chainId,
-        address _authority,
+        bytes32 _sourceChainId,
+        address _sourceAuthority,
         address _target
     ) {
-        amb       = IArbitraryMessagingBridge(_amb);
-        chainId   = bytes32(_chainId);
-        authority = _authority;
-        target    = _target;
+        amb             = IArbitraryMessagingBridge(_amb);
+        sourceChainId   = _sourceChainId;
+        sourceAuthority = _sourceAuthority;
+        target          = _target;
     }
 
     function forward(bytes memory message) external {
-        require(msg.sender == address(amb),                       "AMBReceiver/invalid-sender");
-        require(l2CrossDomain.messageSourceChainId() == chainId,  "AMBReceiver/invalid-chainId");
-        require(l2CrossDomain.messageSender() == sourceAuthority, "AMBReceiver/invalid-sourceAuthority");
+        require(msg.sender == address(amb),                  "AMBReceiver/invalid-sender");
+        require(amb.messageSourceChainId() == sourceChainId, "AMBReceiver/invalid-sourceChainId");
+        require(amb.messageSender() == sourceAuthority,      "AMBReceiver/invalid-sourceAuthority");
 
         (bool success, bytes memory ret) = target.call(message);
         if (!success) {

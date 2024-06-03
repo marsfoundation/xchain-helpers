@@ -5,135 +5,109 @@ import "./IntegrationBase.t.sol";
 
 import { CCTPBridgeTesting } from "src/testing/bridges/CCTPBridgeTesting.sol";
 import { CCTPForwarder }     from "src/forwarders/CCTPForwarder.sol";
-import { CCTPReceiver }      from "src/CCTPReceiver.sol";
+import { CCTPReceiver }      from "src/receivers/CCTPReceiver.sol";
 
 contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
     using CCTPBridgeTesting for *;
     using DomainHelpers     for *;
 
+    uint32 sourceDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_ETHEREUM;
+    uint32 destinationDomainId;
+
+    // Use Optimism for failure tests as the code logic is the same
+
+    function test_invalidSourceAuthority() public {
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
+        initBaseContracts(getChain("optimism").createFork());
+
+        vm.startPrank(randomAddress);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
+        vm.stopPrank();
+
+        vm.expectRevert("CCTPReceiver/invalid-sourceAuthority");
+        bridge.relayMessagesToDestination(true);
+    }
+
+    function test_invalidSender() public {
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
+        initBaseContracts(getChain("optimism").createFork());
+
+        vm.prank(randomAddress);
+        vm.expectRevert("CCTPReceiver/invalid-sender");
+        CCTPReceiver(destinationReceiver).handleReceiveMessage(0, bytes32(uint256(uint160(sourceAuthority))), abi.encodeCall(MessageOrdering.push, (1)));
+    }
+
+    function test_invalidSourceDomain() public {
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
+        initBaseContracts(getChain("optimism").createFork());
+
+        vm.prank(bridge.destinationCrossChainMessenger);
+        vm.expectRevert("CCTPReceiver/invalid-sourceDomain");
+        CCTPReceiver(destinationReceiver).handleReceiveMessage(1, bytes32(uint256(uint160(sourceAuthority))), abi.encodeCall(MessageOrdering.push, (1)));
+    }
+
     function test_avalanche() public {
-        checkCircleCCTPStyle(getChain("avalanche").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_AVALANCHE);
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_AVALANCHE;
+        runCrossChainTests(getChain("avalanche").createFork());
     }
 
     function test_optimism() public {
-        checkCircleCCTPStyle(getChain("optimism").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM);
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
+        runCrossChainTests(getChain("optimism").createFork());
     }
 
     function test_arbitrum_one() public {
-        checkCircleCCTPStyle(getChain("arbitrum_one").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_ARBITRUM_ONE);
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_ARBITRUM_ONE;
+        runCrossChainTests(getChain("arbitrum_one").createFork());
     }
 
     function test_base() public {
-        checkCircleCCTPStyle(getChain("base").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_BASE);
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_BASE;
+        runCrossChainTests(getChain("base").createFork());
     }
 
     function test_polygon() public {
-        checkCircleCCTPStyle(getChain("polygon").createFork(), CCTPForwarder.DOMAIN_ID_CIRCLE_POLYGON_POS);
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_POLYGON_POS;
+        runCrossChainTests(getChain("polygon").createFork());
     }
 
-    function initDestinationReceiver(address target) internal virtual returns (address receiver) {
-        return new CCTPReceiver(sourceAuthority, target);
+    function initSourceReceiver() internal override returns (address) {
+        return address(new CCTPReceiver(bridge.sourceCrossChainMessenger, destinationDomainId, destinationAuthority, address(moSource)));
     }
 
-    function checkCircleCCTPStyle(Domain memory _destination, uint32 destinationDomainId) public {
-        initDestination(_destination);
+    function initDestinationReceiver() internal override returns (address) {
+        return address(new CCTPReceiver(bridge.destinationCrossChainMessenger, sourceDomainId, sourceAuthority, address(moDestination)));
+    }
 
-        Bridge memory bridge = CCTPBridgeTesting.createCircleBridge(source, destination);
+    function initBridgeTesting() internal override returns (Bridge memory) {
+        return CCTPBridgeTesting.createCircleBridge(source, destination);
+    }
 
-        uint32 sourceDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_ETHEREUM;
-
-        mainnet.selectFork();
-
-        MessageOrderingCCTP moHost = new MessageOrderingCCTP(
-            bridge.sourceCrossChainMessenger,
-            destinationDomainId,
-            l2Authority
-        );
-
-        destination.selectFork();
-
-        MessageOrderingCCTP moCCTP = new MessageOrderingCCTP(
-            bridge.destinationCrossChainMessenger,
-            sourceDomainId,
-            l1Authority
-        );
-
-        // Queue up some Destination -> Source messages
-        vm.startPrank(l2Authority);
-        CCTPForwarder.sendMessage(
-            bridge.destinationCrossChainMessenger,
-            sourceDomainId,
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 3)
-        );
-        CCTPForwarder.sendMessage(
-            bridge.destinationCrossChainMessenger,
-            sourceDomainId,
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 4)
-        );
-        vm.stopPrank();
-
-        assertEq(moCCTP.length(), 0);
-
-        // Do not relay right away
-        mainnet.selectFork();
-
-        // Queue up two more Source -> Destination messages
-        vm.startPrank(l1Authority);
+    function queueSourceToDestination(bytes memory message) internal override {
         CCTPForwarder.sendMessage(
             bridge.sourceCrossChainMessenger,
             destinationDomainId,
-            address(moCCTP),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 1)
+            destinationReceiver,
+            message
         );
+    }
+
+    function queueDestinationToSource(bytes memory message) internal override {
         CCTPForwarder.sendMessage(
-            bridge.sourceCrossChainMessenger,
-            destinationDomainId,
-            address(moCCTP),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 2)
+            bridge.destinationCrossChainMessenger,
+            sourceDomainId,
+            sourceReceiver,
+            message
         );
-        vm.stopPrank();
+    }
 
-        assertEq(moHost.length(), 0);
-
+    function relaySourceToDestination() internal override {
         bridge.relayMessagesToDestination(true);
+    }
 
-        assertEq(moCCTP.length(), 2);
-        assertEq(moCCTP.messages(0), 1);
-        assertEq(moCCTP.messages(1), 2);
-
+    function relayDestinationToSource() internal override {
         bridge.relayMessagesToSource(true);
-
-        assertEq(moHost.length(), 2);
-        assertEq(moHost.messages(0), 3);
-        assertEq(moHost.messages(1), 4);
-
-        // Validate the message receiver failure modes
-        vm.startPrank(notL1Authority);
-        CCTPForwarder.sendMessage(
-            bridge.sourceCrossChainMessenger,
-            destinationDomainId,
-            address(moCCTP),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 999)
-        );
-        vm.stopPrank();
-
-        vm.expectRevert("Receiver/invalid-sourceAuthority");
-        bridge.relayMessagesToDestination(true);
-
-        destination.selectFork();
-        vm.expectRevert("Receiver/invalid-sender");
-        moCCTP.push(999);
-
-        vm.expectRevert("Receiver/invalid-sender");
-        moCCTP.handleReceiveMessage(0, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
-
-        assertEq(moCCTP.sourceDomainId(), 0);
-        vm.prank(bridge.destinationCrossChainMessenger);
-        vm.expectRevert("Receiver/invalid-sourceDomain");
-        moCCTP.handleReceiveMessage(1, bytes32(uint256(uint160(l1Authority))), abi.encodeWithSelector(MessageOrdering.push.selector, 999));
     }
 
 }
