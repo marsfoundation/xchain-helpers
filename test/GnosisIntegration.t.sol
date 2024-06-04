@@ -21,13 +21,14 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
-        assertEq(moDestination.length(), 0);
-        bridge.relayMessagesToDestination(true);
+        relaySourceToDestination();
         assertEq(moDestination.length(), 0);
     }
 
     function test_invalidSender() public {
         initBaseContracts(getChain("gnosis_chain").createFork());
+
+        destination.selectFork();
 
         vm.prank(randomAddress);
         vm.expectRevert("AMBReceiver/invalid-sender");
@@ -52,8 +53,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
-        assertEq(moDestination.length(), 0);
-        bridge.relayMessagesToDestination(true);
+        relaySourceToDestination();
         assertEq(moDestination.length(), 0);
     }
 

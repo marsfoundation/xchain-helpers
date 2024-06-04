@@ -26,12 +26,14 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         vm.stopPrank();
 
         vm.expectRevert("CCTPReceiver/invalid-sourceAuthority");
-        bridge.relayMessagesToDestination(true);
+        relaySourceToDestination();
     }
 
     function test_invalidSender() public {
         destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
         initBaseContracts(getChain("optimism").createFork());
+
+        destination.selectFork();
 
         vm.prank(randomAddress);
         vm.expectRevert("CCTPReceiver/invalid-sender");
@@ -41,6 +43,8 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
     function test_invalidSourceDomain() public {
         destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
         initBaseContracts(getChain("optimism").createFork());
+
+        destination.selectFork();
 
         vm.prank(bridge.destinationCrossChainMessenger);
         vm.expectRevert("CCTPReceiver/invalid-sourceDomain");

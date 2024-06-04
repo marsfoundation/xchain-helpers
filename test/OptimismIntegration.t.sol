@@ -25,13 +25,14 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
-        assertEq(moDestination.length(), 0);
-        bridge.relayMessagesToDestination(true);
+        relaySourceToDestination();
         assertEq(moDestination.length(), 0);
     }
 
     function test_invalidSender() public {
         initBaseContracts(getChain("optimism").createFork());
+
+        destination.selectFork();
 
         vm.prank(randomAddress);
         vm.expectRevert("OptimismReceiver/invalid-sender");

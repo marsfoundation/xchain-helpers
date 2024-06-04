@@ -12,8 +12,8 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
     using ArbitrumBridgeTesting for *;
     using DomainHelpers         for *;
 
-    function setUp() public override {
-        super.setUp();
+    function initBaseContracts(Domain memory _destination) internal override {
+        super.initBaseContracts(_destination);
 
         // Needed for arbitrum cross-chain messages
         deal(sourceAuthority, 100 ether);
@@ -30,7 +30,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         vm.stopPrank();
 
         vm.expectRevert("ArbitrumReceiver/invalid-l1Authority");
-        bridge.relayMessagesToDestination(true);
+        relaySourceToDestination();
     }
 
     function test_arbitrumOne() public {

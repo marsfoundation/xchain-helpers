@@ -47,12 +47,14 @@ abstract contract IntegrationBaseTest is Test {
 
     Bridge bridge;
 
-    function setUp() public virtual {
+    function setUp() public {
         source = getChain("mainnet").createFork();
     }
 
-    function initBaseContracts(Domain memory _destination) internal {
+    function initBaseContracts(Domain memory _destination) internal virtual {
         destination = _destination;
+
+        bridge = initBridgeTesting();
 
         source.selectFork();
         moSource = new MessageOrdering();
@@ -64,8 +66,6 @@ abstract contract IntegrationBaseTest is Test {
         destinationReceiver = initDestinationReceiver();
         moDestination.setReceiver(destinationReceiver);
 
-        bridge = initBridgeTesting();
-
         // Default to source fork as it's an obvious default
         source.selectFork();
     }
@@ -76,7 +76,7 @@ abstract contract IntegrationBaseTest is Test {
         destination.selectFork();
 
         // Queue up some Destination -> Source messages
-        vm.startPrank(sourceAuthority);
+        vm.startPrank(destinationAuthority);
         queueDestinationToSource(abi.encodeCall(MessageOrdering.push, (3)));
         queueDestinationToSource(abi.encodeCall(MessageOrdering.push, (4)));
         vm.stopPrank();
