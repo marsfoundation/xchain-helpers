@@ -10,7 +10,7 @@ These libraries provide standardized syntax for sending a message to a bridge.
 
 The most common pattern is to have an authorized contract forward a message to another "business logic" contract to abstract away bridge dependencies. Receivers are contracts which perform this generic translation - decoding the bridge-specific message and forwarding to another `target` contract. The `target` contract should have logic to restrict who can call it and permission this to one or more bridge receivers.
 
-TODO diagram
+![xchain-helpers](.assets/xchain-helpers.png)
 
 ## E2E Testing Infrastructure
 

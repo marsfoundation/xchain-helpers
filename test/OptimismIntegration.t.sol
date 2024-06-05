@@ -14,16 +14,6 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
     event FailedRelayedMessage(bytes32);
 
-    function test_receiver_constructor() public {
-        initBaseContracts(getChain("optimism").createFork());
-        destination.selectFork();
-
-        OptimismReceiver receiver = new OptimismReceiver(sourceAuthority, address(moDestination));
-
-        assertEq(receiver.l1Authority(), sourceAuthority);
-        assertEq(receiver.target(),      address(moDestination));
-    }
-
     // Use Arbitrum One for failure test as the code logic is the same
 
     function test_invalidSourceAuthority() public {

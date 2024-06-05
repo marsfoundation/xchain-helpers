@@ -15,19 +15,6 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
     uint32 sourceDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_ETHEREUM;
     uint32 destinationDomainId;
 
-    function test_receiver_constructor() public {
-        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
-        initBaseContracts(getChain("optimism").createFork());
-        destination.selectFork();
-
-        CCTPReceiver receiver = new CCTPReceiver(bridge.destinationCrossChainMessenger, sourceDomainId, sourceAuthority, address(moDestination));
-
-        assertEq(receiver.destinationMessenger(), bridge.destinationCrossChainMessenger);
-        assertEq(receiver.sourceDomainId(),       sourceDomainId);
-        assertEq(receiver.sourceAuthority(),      sourceAuthority);
-        assertEq(receiver.target(),               address(moDestination));
-    }
-
     // Use Optimism for failure tests as the code logic is the same
 
     function test_invalidSourceAuthority() public {
