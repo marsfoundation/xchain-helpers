@@ -20,6 +20,16 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         deal(randomAddress,   100 ether);
     }
 
+    function test_receiver_constructor() public {
+        initBaseContracts(getChain("arbitrum_one").createFork());
+        destination.selectFork();
+
+        ArbitrumReceiver receiver = new ArbitrumReceiver(sourceAuthority, address(moDestination));
+
+        assertEq(receiver.l1Authority(), sourceAuthority);
+        assertEq(receiver.target(),      address(moDestination));
+    }
+
     // Use Arbitrum One for failure test as the code logic is the same
 
     function test_invalidSourceAuthority() public {

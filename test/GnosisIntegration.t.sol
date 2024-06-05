@@ -12,6 +12,18 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
     using AMBBridgeTesting for *;
     using DomainHelpers    for *;
 
+    function test_receiver_constructor() public {
+        initBaseContracts(getChain("gnosis_chain").createFork());
+        destination.selectFork();
+
+        AMBReceiver receiver = new AMBReceiver(bridge.destinationCrossChainMessenger, bytes32(uint256(1)), sourceAuthority, address(moDestination));
+
+        assertEq(receiver.amb(),             bridge.destinationCrossChainMessenger);
+        assertEq(receiver.sourceChainId(),   bytes32(uint256(1)));
+        assertEq(receiver.sourceAuthority(), sourceAuthority);
+        assertEq(receiver.target(),          address(moDestination));
+    }
+
     function test_invalidSourceAuthority() public {
         initBaseContracts(getChain("gnosis_chain").createFork());
 
