@@ -24,32 +24,6 @@ library OptimismForwarder {
         );
     }
 
-    function sendMessageL1toL2Optimism(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageL1toL2(
-            L1_CROSS_DOMAIN_OPTIMISM,
-            target,
-            message,
-            uint32(gasLimit)
-        );
-    }
-
-    function sendMessageL1toL2Base(
-        address target,
-        bytes memory message,
-        uint256 gasLimit
-    ) internal {
-        sendMessageL1toL2(
-            L1_CROSS_DOMAIN_BASE,
-            target,
-            message,
-            uint32(gasLimit)
-        );
-    }
-
     function sendMessageL2toL1(
         address target,
         bytes memory message,

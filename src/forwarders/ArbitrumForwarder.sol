@@ -47,40 +47,6 @@ library ArbitrumForwarder {
         );
     }
 
-    function sendMessageL1toL2ArbitrumOne(
-        address target,
-        bytes memory message,
-        uint256 gasLimit,
-        uint256 maxFeePerGas,
-        uint256 baseFee
-    ) internal {
-        sendMessageL1toL2(
-            L1_CROSS_DOMAIN_ARBITRUM_ONE,
-            target,
-            message,
-            gasLimit,
-            maxFeePerGas,
-            baseFee
-        );
-    }
-
-    function sendMessageL1toL2ArbitrumNova(
-        address target,
-        bytes memory message,
-        uint256 gasLimit,
-        uint256 maxFeePerGas,
-        uint256 baseFee
-    ) internal {
-        sendMessageL1toL2(
-            L1_CROSS_DOMAIN_ARBITRUM_NOVA,
-            target,
-            message,
-            gasLimit,
-            maxFeePerGas,
-            baseFee
-        );
-    }
-
     function sendMessageL2toL1(
         address target,
         bytes memory message
