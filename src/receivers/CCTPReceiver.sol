@@ -9,13 +9,13 @@ contract CCTPReceiver {
 
     address public immutable destinationMessenger;
     uint32  public immutable sourceDomainId;
-    address public immutable sourceAuthority;
+    bytes32 public immutable sourceAuthority;
     address public immutable target;
 
     constructor(
         address _destinationMessenger,
         uint32  _sourceDomainId,
-        address _sourceAuthority,
+        bytes32 _sourceAuthority,
         address _target
     ) {
         destinationMessenger = _destinationMessenger;
@@ -29,9 +29,9 @@ contract CCTPReceiver {
         bytes32 sender,
         bytes calldata messageBody
     ) external returns (bool) {
-        require(msg.sender == destinationMessenger,                   "CCTPReceiver/invalid-sender");
-        require(sourceDomainId == sourceDomain,                       "CCTPReceiver/invalid-sourceDomain");
-        require(sender == bytes32(uint256(uint160(sourceAuthority))), "CCTPReceiver/invalid-sourceAuthority");
+        require(msg.sender == destinationMessenger, "CCTPReceiver/invalid-sender");
+        require(sourceDomainId == sourceDomain,     "CCTPReceiver/invalid-sourceDomain");
+        require(sender == sourceAuthority,          "CCTPReceiver/invalid-sourceAuthority");
 
         (bool success, bytes memory ret) = target.call(messageBody);
         if (!success) {

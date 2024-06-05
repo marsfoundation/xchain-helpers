@@ -77,11 +77,11 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
     }
 
     function initSourceReceiver() internal override returns (address) {
-        return address(new CCTPReceiver(bridge.sourceCrossChainMessenger, destinationDomainId, destinationAuthority, address(moSource)));
+        return address(new CCTPReceiver(bridge.sourceCrossChainMessenger, destinationDomainId, bytes32(uint256(uint160(destinationAuthority))), address(moSource)));
     }
 
     function initDestinationReceiver() internal override returns (address) {
-        return address(new CCTPReceiver(bridge.destinationCrossChainMessenger, sourceDomainId, sourceAuthority, address(moDestination)));
+        return address(new CCTPReceiver(bridge.destinationCrossChainMessenger, sourceDomainId, bytes32(uint256(uint160(sourceAuthority))), address(moDestination)));
     }
 
     function initBridgeTesting() internal override returns (Bridge memory) {
