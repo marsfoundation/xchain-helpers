@@ -3,6 +3,8 @@ pragma solidity >=0.8.0;
 
 import "forge-std/Test.sol";
 
+import { TargetContractMock } from "test/mocks/TargetContractMock.sol";
+
 import { AMBReceiver } from "src/receivers/AMBReceiver.sol";
 
 contract AMBMock {
@@ -23,20 +25,6 @@ contract AMBMock {
         messageSender = _messageSender;
     }
 
-}
-
-contract TargetContractMock {
-
-    uint256 public s;
-
-    function someFunc() external {
-        s++;
-    }
-
-    function revertFunc() external pure {
-        revert("error");
-    }
-    
 }
 
 contract AMBReceiverTest is Test {
@@ -99,9 +87,10 @@ contract AMBReceiverTest is Test {
     }
 
     function test_forward_success() public {
+        assertEq(target.data(), 0);
         vm.prank(address(amb));
         receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
-        assertEq(target.s(), 1);
+        assertEq(target.data(), 1);
     }
 
     function test_forward_revert() public {
