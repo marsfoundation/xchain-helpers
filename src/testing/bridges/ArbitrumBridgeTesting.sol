@@ -7,8 +7,6 @@ import { Bridge }                from "src/testing/Bridge.sol";
 import { Domain, DomainHelpers } from "src/testing/Domain.sol";
 import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
 
-import {console} from "./../../../lib/forge-std/src/console.sol";
-
 interface InboxLike {
     function createRetryableTicket(
         address destAddr,
