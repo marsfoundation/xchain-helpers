@@ -15,7 +15,7 @@ contract CCTPReceiverTest is Test {
 
     address destinationMessenger = makeAddr("destinationMessenger");
     uint32  sourceDomainId       = 1;
-    address sourceAuthority      = makeAddr("sourceAuthority");
+    bytes32 sourceAuthority      = bytes32(uint256(uint160(makeAddr("sourceAuthority"))));
     address randomAddress        = makeAddr("randomAddress");
 
     function setUp() public {
@@ -48,7 +48,7 @@ contract CCTPReceiverTest is Test {
         vm.expectRevert("CCTPReceiver/invalid-sender");
         receiver.handleReceiveMessage(
             sourceDomainId,
-            bytes32(uint256(uint160(sourceAuthority))),
+            sourceAuthority,
             abi.encodeCall(TargetContractMock.someFunc, ())
         );
     }
@@ -58,7 +58,7 @@ contract CCTPReceiverTest is Test {
         vm.expectRevert("CCTPReceiver/invalid-sourceDomain");
         receiver.handleReceiveMessage(
             2,
-            bytes32(uint256(uint160(sourceAuthority))),
+            sourceAuthority,
             abi.encodeCall(TargetContractMock.someFunc, ())
         );
     }
@@ -78,7 +78,7 @@ contract CCTPReceiverTest is Test {
         vm.prank(destinationMessenger);
         receiver.handleReceiveMessage(
             sourceDomainId,
-            bytes32(uint256(uint160(sourceAuthority))),
+            sourceAuthority,
             abi.encodeCall(TargetContractMock.someFunc, ())
         );
         assertEq(target.data(), 1);
@@ -89,7 +89,7 @@ contract CCTPReceiverTest is Test {
         vm.expectRevert("error");
         receiver.handleReceiveMessage(
             sourceDomainId,
-            bytes32(uint256(uint160(sourceAuthority))),
+            sourceAuthority,
             abi.encodeCall(TargetContractMock.revertFunc, ())
         );
     }
