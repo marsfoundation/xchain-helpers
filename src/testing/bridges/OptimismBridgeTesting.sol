@@ -1,0 +1,137 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+pragma solidity >=0.8.0;
+
+import { Vm }        from "forge-std/Vm.sol";
+
+import { Bridge }                from "src/testing/Bridge.sol";
+import { Domain, DomainHelpers } from "src/testing/Domain.sol";
+import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
+
+interface IMessenger {
+    function sendMessage(
+        address target,
+        bytes memory message,
+        uint32 gasLimit
+    ) external;
+    function relayMessage(
+        uint256 _nonce,
+        address _sender,
+        address _target,
+        uint256 _value,
+        uint256 _minGasLimit,
+        bytes calldata _message
+    ) external payable;
+}
+
+library OptimismBridgeTesting {
+
+    using DomainHelpers for *;
+    using RecordedLogs  for *;
+
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
+    bytes32 private constant SENT_MESSAGE_TOPIC = keccak256("SentMessage(address,address,bytes,uint256,uint256)");
+    
+    function createNativeBridge(Domain memory ethereum, Domain memory optimismInstance) internal returns (Bridge memory bridge) {
+        (
+            address sourceCrossChainMessenger,
+            address destinationCrossChainMessenger
+        ) = getMessengerFromChainAlias(ethereum.chain.chainAlias, optimismInstance.chain.chainAlias);
+
+        return init(Bridge({
+            source:                         ethereum,
+            destination:                    optimismInstance,
+            sourceCrossChainMessenger:      sourceCrossChainMessenger,
+            destinationCrossChainMessenger: destinationCrossChainMessenger,
+            lastSourceLogIndex:             0,
+            lastDestinationLogIndex:        0,
+            extraData:                      ""
+        }));
+    }
+
+    function getMessengerFromChainAlias(
+        string memory sourceChainAlias,
+        string memory destinationChainAlias
+    ) internal pure returns (
+        address sourceCrossChainMessenger,
+        address destinationCrossChainMessenger
+    ) {
+        require(keccak256(bytes(sourceChainAlias)) == keccak256("mainnet"), "Source must be Ethereum.");
+
+        bytes32 name = keccak256(bytes(destinationChainAlias));
+        if (name == keccak256("optimism")) {
+            sourceCrossChainMessenger = 0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1;
+        } else if (name == keccak256("base")) {
+            sourceCrossChainMessenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
+        } else {
+            revert("Unsupported destination chain");
+        }
+        destinationCrossChainMessenger = 0x4200000000000000000000000000000000000007;
+    }
+
+    function init(Bridge memory bridge) internal returns (Bridge memory) {
+        vm.recordLogs();
+
+        // For consistency with other bridges
+        bridge.source.selectFork();
+
+        return bridge;
+    }
+
+    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
+        bridge.destination.selectFork();
+
+        address malias;
+        unchecked {
+            malias = address(uint160(bridge.sourceCrossChainMessenger) + uint160(0x1111000000000000000000000000000000001111));
+        }
+
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(true, SENT_MESSAGE_TOPIC, bridge.sourceCrossChainMessenger);
+        for (uint256 i = 0; i < logs.length; i++) {
+            Vm.Log memory log = logs[i];
+            address target = address(uint160(uint256(log.topics[1])));
+            (address sender, bytes memory message, uint256 nonce, uint256 gasLimit) = abi.decode(log.data, (address, bytes, uint256, uint256));
+            vm.prank(malias);
+            IMessenger(bridge.destinationCrossChainMessenger).relayMessage(nonce, sender, target, 0, gasLimit, message);
+        }
+
+        if (!switchToDestinationFork) {
+            bridge.source.selectFork();
+        }
+    }
+
+    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
+        bridge.source.selectFork();
+
+        Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, bridge.destinationCrossChainMessenger);
+        for (uint256 i = 0; i < logs.length; i++) {
+            Vm.Log memory log = logs[i];
+            address target = address(uint160(uint256(log.topics[1])));
+                (address sender, bytes memory message,,) = abi.decode(log.data, (address, bytes, uint256, uint256));
+                // Set xDomainMessageSender
+                vm.store(
+                    bridge.sourceCrossChainMessenger,
+                    bytes32(uint256(204)),
+                    bytes32(uint256(uint160(sender)))
+                );
+                vm.startPrank(bridge.sourceCrossChainMessenger);
+                (bool success, bytes memory response) = target.call(message);
+                vm.stopPrank();
+                vm.store(
+                    bridge.sourceCrossChainMessenger,
+                    bytes32(uint256(204)),
+                    bytes32(uint256(0))
+                );
+                if (!success) {
+                    assembly {
+                        revert(add(response, 32), mload(response))
+                    }
+                }
+        }
+
+        if (!switchToSourceFork) {
+            bridge.destination.selectFork();
+        }
+    }
+
+}

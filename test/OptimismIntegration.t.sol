@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 
 import "./IntegrationBase.t.sol";
 
-import { OptimismDomain } from "../src/testing/OptimismDomain.sol";
+import { OptimismBridgeTesting, IMessenger } from "src/testing/bridges/OptimismBridgeTesting.sol";
 
-import { OptimismReceiver } from "../src/OptimismReceiver.sol";
+import { OptimismReceiver } from "src/OptimismReceiver.sol";
 
 contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
 
@@ -19,20 +19,23 @@ contract MessageOrderingOptimism is MessageOrdering, OptimismReceiver {
 
 contract OptimismIntegrationTest is IntegrationBaseTest {
 
+    using OptimismBridgeTesting for *;
+    using DomainHelpers         for *;
+
     event FailedRelayedMessage(bytes32);
 
     function test_optimism() public {
-        checkOptimismStyle(new OptimismDomain(getChain("optimism"), mainnet));
+        checkOptimismStyle(getChain("optimism").createFork());
     }
 
     function test_base() public {
-        checkOptimismStyle(new OptimismDomain(getChain("base"), mainnet));
+        checkOptimismStyle(getChain("base").createFork());
     }
 
-    function checkOptimismStyle(OptimismDomain optimism) public {
-        Domain host = optimism.hostDomain();
+    function checkOptimismStyle(Domain memory optimism) public {
+        Bridge memory bridge = OptimismBridgeTesting.createNativeBridge(mainnet, optimism);
 
-        host.selectFork();
+        mainnet.selectFork();
 
         MessageOrdering moHost = new MessageOrdering();
 
@@ -41,12 +44,12 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         MessageOrdering moOptimism = new MessageOrderingOptimism(l1Authority);
 
         // Queue up some L2 -> L1 messages
-        optimism.L2_MESSENGER().sendMessage(
+        IMessenger(bridge.destinationCrossChainMessenger).sendMessage(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 3),
             100000
         );
-        optimism.L2_MESSENGER().sendMessage(
+        IMessenger(bridge.destinationCrossChainMessenger).sendMessage(
             address(moHost),
             abi.encodeWithSelector(MessageOrdering.push.selector, 4),
             100000
@@ -55,18 +58,18 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         assertEq(moOptimism.length(), 0);
 
         // Do not relay right away
-        host.selectFork();
+        mainnet.selectFork();
 
         // Queue up two more L1 -> L2 messages
         vm.startPrank(l1Authority);
         XChainForwarders.sendMessageOptimism(
-            address(optimism.L1_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 1),
             100000
         );
         XChainForwarders.sendMessageOptimism(
-            address(optimism.L1_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 2),
             100000
@@ -75,13 +78,13 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         assertEq(moHost.length(), 0);
 
-        optimism.relayFromHost(true);
+        bridge.relayMessagesToDestination(true);
 
         assertEq(moOptimism.length(), 2);
         assertEq(moOptimism.messages(0), 1);
         assertEq(moOptimism.messages(1), 2);
 
-        optimism.relayToHost(true);
+        bridge.relayMessagesToSource(true);
 
         assertEq(moHost.length(), 2);
         assertEq(moHost.messages(0), 3);
@@ -90,7 +93,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         // Validate the message receiver failure modes
         vm.startPrank(notL1Authority);
         XChainForwarders.sendMessageOptimism(
-            address(optimism.L1_MESSENGER()),
+            bridge.sourceCrossChainMessenger,
             address(moOptimism),
             abi.encodeWithSelector(MessageOrdering.push.selector, 999),
             100000
@@ -99,7 +102,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
-        optimism.relayFromHost(true);
+        bridge.relayMessagesToDestination(true);
         assertEq(moOptimism.length(), 2);   // No change
 
         optimism.selectFork();

@@ -4,30 +4,56 @@ pragma solidity >=0.8.0;
 import { StdChains } from "forge-std/StdChains.sol";
 import { Vm }        from "forge-std/Vm.sol";
 
-contract Domain {
+struct Domain {
+    StdChains.Chain chain;
+    uint256         forkId;
+}
 
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+library DomainHelpers {
 
-    StdChains.Chain private _details;
-    uint256 public forkId;
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
-    constructor(StdChains.Chain memory _chain) {
-        _details = _chain;
-        forkId = vm.createFork(_chain.rpcUrl);
-        vm.makePersistent(address(this));
+    function createFork(StdChains.Chain memory chain, uint256 blockNumber) internal returns (Domain memory domain) {
+        domain = Domain({
+            chain:  chain,
+            forkId: vm.createFork(chain.rpcUrl, blockNumber)
+        });
     }
 
-    function details() public view returns (StdChains.Chain memory) {
-        return _details;
+    function createFork(StdChains.Chain memory chain) internal returns (Domain memory domain) {
+        domain = Domain({
+            chain:  chain,
+            forkId: vm.createFork(chain.rpcUrl)
+        });
     }
 
-    function selectFork() public {
-        vm.selectFork(forkId);
-        require(block.chainid == _details.chainId, string(abi.encodePacked(_details.chainAlias, " is pointing to the wrong RPC endpoint '", _details.rpcUrl, "'")));
+    function createSelectFork(StdChains.Chain memory chain, uint256 blockNumber) internal returns (Domain memory domain) {
+        domain = Domain({
+            chain:  chain,
+            forkId: vm.createSelectFork(chain.rpcUrl, blockNumber)
+        });
+        _assertExpectedRpc(chain);
     }
 
-    function rollFork(uint256 blocknum) public {
-        vm.rollFork(forkId, blocknum);
+    function createSelectFork(StdChains.Chain memory chain) internal returns (Domain memory domain) {
+        domain = Domain({
+            chain:  chain,
+            forkId: vm.createSelectFork(chain.rpcUrl)
+        });
+        _assertExpectedRpc(chain);
+    }
+
+    function selectFork(Domain memory domain) internal {
+        vm.selectFork(domain.forkId);
+        _assertExpectedRpc(domain.chain);
+    }
+
+    function rollFork(Domain memory domain, uint256 blockNumber) internal {
+        vm.rollFork(domain.forkId, blockNumber);
+    }
+
+    function _assertExpectedRpc(StdChains.Chain memory chain) private view {
+        require(block.chainid == chain.chainId, string(abi.encodePacked(chain.chainAlias, " is pointing to the wrong RPC endpoint '", chain.rpcUrl, "'")));
     }
 
 }

@@ -3,9 +3,11 @@ pragma solidity >=0.8.0;
 
 import { Vm } from "forge-std/Vm.sol";
 
+import { Bridge } from "src/testing/Bridge.sol";
+
 library RecordedLogs {
 
-    Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm private constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     function getLogs() internal returns (Vm.Log[] memory) {
         string memory _logs = vm.serializeUint("RECORDED_LOGS", "a", 0); // this is the only way to get the logs from the memory object
@@ -29,6 +31,30 @@ library RecordedLogs {
         vm.serializeUint("RECORDED_LOGS", "count", count);
 
         return logs;
+    }
+
+    function ingestAndFilterLogs(Bridge memory bridge, bool sourceToDestination, bytes32 topic0, bytes32 topic1, address emitter) internal returns (Vm.Log[] memory filteredLogs) {
+        Vm.Log[] memory logs = RecordedLogs.getLogs();
+        uint256 lastIndex = sourceToDestination ? bridge.lastSourceLogIndex : bridge.lastDestinationLogIndex;
+        uint256 pushedIndex = 0;
+
+        filteredLogs = new Vm.Log[](logs.length - lastIndex);
+
+        for (; lastIndex < logs.length; lastIndex++) {
+            Vm.Log memory log = logs[lastIndex];
+            if ((log.topics[0] == topic0 || log.topics[0] == topic1) && log.emitter == emitter) {
+                filteredLogs[pushedIndex++] = log;
+            }
+        }
+
+        if (sourceToDestination) bridge.lastSourceLogIndex = lastIndex;
+        else bridge.lastDestinationLogIndex = lastIndex;
+        // Reduce the array length
+        assembly { mstore(filteredLogs, pushedIndex) }
+    }
+
+    function ingestAndFilterLogs(Bridge memory bridge, bool sourceToDestination, bytes32 topic, address emitter) internal returns (Vm.Log[] memory filteredLogs) {
+        return ingestAndFilterLogs(bridge, sourceToDestination, topic, bytes32(0), emitter);
     }
 
 }
