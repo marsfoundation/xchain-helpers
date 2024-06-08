@@ -36,7 +36,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
         vm.prank(randomAddress);
         vm.expectRevert("OptimismReceiver/invalid-sender");
-        OptimismReceiver(destinationReceiver).forward(abi.encodeCall(MessageOrdering.push, (1)));
+        MessageOrdering(destinationReceiver).push(1);
     }
 
     function test_optimism() public {
@@ -63,7 +63,7 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         OptimismForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             destinationReceiver,
-            abi.encodeCall(OptimismReceiver.forward, (message)),
+            message,
             100000
         );
     }

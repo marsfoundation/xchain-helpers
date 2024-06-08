@@ -57,7 +57,7 @@ contract ArbitrumIntegrationTest is IntegrationBaseTest {
         ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
             destinationReceiver,
-            abi.encodeCall(ArbitrumReceiver.forward, (message)),
+            message,
             100000,
             1 gwei,
             block.basefee + 10 gwei

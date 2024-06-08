@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import { Address } from "lib/openzeppelin-contracts/contracts/utils/Address.sol";
+
 /**
  * @title  CCTPReceiver
  * @notice Receive messages from CCTP-style bridge.
  */
 contract CCTPReceiver {
+
+    using Address for address;
 
     address public immutable destinationMessenger;
     uint32  public immutable sourceDomainId;
@@ -33,12 +37,7 @@ contract CCTPReceiver {
         require(sourceDomainId == sourceDomain,     "CCTPReceiver/invalid-sourceDomain");
         require(sender == sourceAuthority,          "CCTPReceiver/invalid-sourceAuthority");
 
-        (bool success, bytes memory ret) = target.call(messageBody);
-        if (!success) {
-            assembly {
-                revert(add(ret, 0x20), mload(ret))
-            }
-        }
+        target.functionCall(messageBody);
 
         return true;
     }

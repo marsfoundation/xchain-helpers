@@ -32,7 +32,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
 
         vm.prank(randomAddress);
         vm.expectRevert("AMBReceiver/invalid-sender");
-        AMBReceiver(destinationReceiver).forward(abi.encodeCall(MessageOrdering.push, (1)));
+        MessageOrdering(destinationReceiver).push(1);
     }
 
     function test_invalidSourceChainId() public {
@@ -76,7 +76,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
     function queueSourceToDestination(bytes memory message) internal override {
         AMBForwarder.sendMessageEthereumToGnosisChain(
             destinationReceiver,
-            abi.encodeCall(AMBReceiver.forward, (message)),
+            message,
             100000
         );
     }
@@ -84,7 +84,7 @@ contract GnosisIntegrationTest is IntegrationBaseTest {
     function queueDestinationToSource(bytes memory message) internal override {
         AMBForwarder.sendMessageGnosisChainToEthereum(
             sourceReceiver,
-            abi.encodeCall(AMBReceiver.forward, (message)),
+            message,
             100000
         );
     }
