@@ -122,7 +122,7 @@ library ArbitrumBridgeTesting {
         return bridge;
     }
 
-    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
+    function relayMessagesToDestination(Bridge storage bridge, bool switchToDestinationFork) internal {
         bridge.destination.selectFork();
 
         Vm.Log[] memory logs = RecordedLogs.getLogs();
@@ -149,7 +149,7 @@ library ArbitrumBridgeTesting {
         }
     }
 
-    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
+    function relayMessagesToSource(Bridge storage bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
 
         Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SEND_TO_L1_TOPIC, bridge.destinationCrossChainMessenger);

@@ -33,7 +33,7 @@ library RecordedLogs {
         return logs;
     }
 
-    function ingestAndFilterLogs(Bridge memory bridge, bool sourceToDestination, bytes32 topic0, bytes32 topic1, address emitter) internal returns (Vm.Log[] memory filteredLogs) {
+    function ingestAndFilterLogs(Bridge storage bridge, bool sourceToDestination, bytes32 topic0, bytes32 topic1, address emitter) internal returns (Vm.Log[] memory filteredLogs) {
         Vm.Log[] memory logs = RecordedLogs.getLogs();
         uint256 lastIndex = sourceToDestination ? bridge.lastSourceLogIndex : bridge.lastDestinationLogIndex;
         uint256 pushedIndex = 0;
@@ -53,7 +53,7 @@ library RecordedLogs {
         assembly { mstore(filteredLogs, pushedIndex) }
     }
 
-    function ingestAndFilterLogs(Bridge memory bridge, bool sourceToDestination, bytes32 topic, address emitter) internal returns (Vm.Log[] memory filteredLogs) {
+    function ingestAndFilterLogs(Bridge storage bridge, bool sourceToDestination, bytes32 topic, address emitter) internal returns (Vm.Log[] memory filteredLogs) {
         return ingestAndFilterLogs(bridge, sourceToDestination, topic, bytes32(0), emitter);
     }
 

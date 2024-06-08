@@ -105,6 +105,16 @@ abstract contract IntegrationBaseTest is Test {
         assertEq(moSource.length(), 2);
         assertEq(moSource.messages(0), 3);
         assertEq(moSource.messages(1), 4);
+
+        // One more message to destination
+        vm.startPrank(sourceAuthority);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (5)));
+        vm.stopPrank();
+
+        relaySourceToDestination();
+
+        assertEq(moDestination.length(), 3);
+        assertEq(moDestination.messages(2), 5);
     }
 
     function initSourceReceiver() internal virtual returns (address);
