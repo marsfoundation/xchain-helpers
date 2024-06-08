@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 
 import { Vm }        from "forge-std/Vm.sol";
 
-import { Bridge }                from "src/testing/Bridge.sol";
-import { Domain, DomainHelpers } from "src/testing/Domain.sol";
-import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
+import { Bridge }                from "../Bridge.sol";
+import { Domain, DomainHelpers } from "../Domain.sol";
+import { RecordedLogs }          from "../utils/RecordedLogs.sol";
 
 interface IAMB {
     function validatorContract() external view returns (address);

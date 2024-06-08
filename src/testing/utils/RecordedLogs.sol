@@ -3,7 +3,7 @@ pragma solidity >=0.8.0;
 
 import { Vm } from "forge-std/Vm.sol";
 
-import { Bridge } from "src/testing/Bridge.sol";
+import { Bridge } from "../Bridge.sol";
 
 library RecordedLogs {
 
