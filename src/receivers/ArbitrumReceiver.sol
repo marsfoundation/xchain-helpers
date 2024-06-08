@@ -1,11 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.0;
 
+import { Address } from "lib/openzeppelin-contracts/contracts/utils/Address.sol";
+
 /**
  * @title  ArbitrumReceiver
  * @notice Receive messages to an Arbitrum-style chain.
  */
 contract ArbitrumReceiver {
+
+    using Address for address;
 
     address public immutable l1Authority;
     address public immutable target;
@@ -24,15 +28,10 @@ contract ArbitrumReceiver {
         }
     }
 
-    function forward(bytes memory message) external {
+    fallback(bytes calldata message) external returns (bytes memory) {
         require(_getL1MessageSender() == l1Authority, "ArbitrumReceiver/invalid-l1Authority");
 
-        (bool success, bytes memory ret) = target.call(message);
-        if (!success) {
-            assembly {
-                revert(add(ret, 0x20), mload(ret))
-            }
-        }
+        return target.functionCall(message);
     }
 
 }
