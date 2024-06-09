@@ -67,7 +67,7 @@ contract AMBReceiverTest is Test {
     function test_forward_invalidSender() public {
         vm.prank(randomAddress);
         vm.expectRevert("AMBReceiver/invalid-sender");
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
     }
 
     function test_forward_invalidSourceChainId() public {
@@ -75,7 +75,7 @@ contract AMBReceiverTest is Test {
 
         vm.prank(address(amb));
         vm.expectRevert("AMBReceiver/invalid-sourceChainId");
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
     }
 
     function test_forward_invalidSourceAuthority() public {
@@ -83,20 +83,20 @@ contract AMBReceiverTest is Test {
 
         vm.prank(address(amb));
         vm.expectRevert("AMBReceiver/invalid-sourceAuthority");
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
     }
 
     function test_forward_success() public {
         assertEq(target.data(), 0);
         vm.prank(address(amb));
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
         assertEq(target.data(), 1);
     }
 
     function test_forward_revert() public {
         vm.prank(address(amb));
         vm.expectRevert("error");
-        receiver.forward(abi.encodeCall(TargetContractMock.revertFunc, ()));
+        TargetContractMock(address(receiver)).revertFunc();
     }
     
 }

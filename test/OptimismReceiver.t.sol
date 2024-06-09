@@ -57,7 +57,7 @@ contract OptimismReceiverTest is Test {
     function test_forward_invalidSender() public {
         vm.prank(randomAddress);
         vm.expectRevert("OptimismReceiver/invalid-sender");
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
     }
 
     function test_forward_invalidL1Authority() public {
@@ -65,20 +65,20 @@ contract OptimismReceiverTest is Test {
         
         vm.prank(address(l2CrossDomain));
         vm.expectRevert("OptimismReceiver/invalid-l1Authority");
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
     }
 
     function test_forward_success() public {
         assertEq(target.data(), 0);
         vm.prank(address(l2CrossDomain));
-        receiver.forward(abi.encodeCall(TargetContractMock.someFunc, ()));
+        TargetContractMock(address(receiver)).someFunc();
         assertEq(target.data(), 1);
     }
 
     function test_forward_revert() public {
         vm.prank(address(l2CrossDomain));
         vm.expectRevert("error");
-        receiver.forward(abi.encodeCall(TargetContractMock.revertFunc, ()));
+        TargetContractMock(address(receiver)).revertFunc();
     }
     
 }
