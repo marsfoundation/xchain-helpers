@@ -14,7 +14,17 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
 
     event FailedRelayedMessage(bytes32);
 
-    // Use Arbitrum One for failure test as the code logic is the same
+    // Use Optimism mainnet for failure test as the code logic is the same
+
+    function test_invalidSender() public {
+        initBaseContracts(getChain("optimism").createFork());
+
+        destination.selectFork();
+
+        vm.prank(randomAddress);
+        vm.expectRevert("OptimismReceiver/invalid-sender");
+        MessageOrdering(destinationReceiver).push(1);
+    }
 
     function test_invalidSourceAuthority() public {
         initBaseContracts(getChain("optimism").createFork());
@@ -27,16 +37,6 @@ contract OptimismIntegrationTest is IntegrationBaseTest {
         // Just look at the no change to verify it didn't go through
         relaySourceToDestination();
         assertEq(moDestination.length(), 0);
-    }
-
-    function test_invalidSender() public {
-        initBaseContracts(getChain("optimism").createFork());
-
-        destination.selectFork();
-
-        vm.prank(randomAddress);
-        vm.expectRevert("OptimismReceiver/invalid-sender");
-        MessageOrdering(destinationReceiver).push(1);
     }
 
     function test_optimism() public {
