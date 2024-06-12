@@ -17,18 +17,6 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
 
     // Use Optimism for failure tests as the code logic is the same
 
-    function test_invalidSourceAuthority() public {
-        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
-        initBaseContracts(getChain("optimism").createFork());
-
-        vm.startPrank(randomAddress);
-        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
-        vm.stopPrank();
-
-        vm.expectRevert("CCTPReceiver/invalid-sourceAuthority");
-        relaySourceToDestination();
-    }
-
     function test_invalidSender() public {
         destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
         initBaseContracts(getChain("optimism").createFork());
@@ -49,6 +37,18 @@ contract CircleCCTPIntegrationTest is IntegrationBaseTest {
         vm.prank(bridge.destinationCrossChainMessenger);
         vm.expectRevert("CCTPReceiver/invalid-sourceDomain");
         CCTPReceiver(destinationReceiver).handleReceiveMessage(1, bytes32(uint256(uint160(sourceAuthority))), abi.encodeCall(MessageOrdering.push, (1)));
+    }
+
+    function test_invalidSourceAuthority() public {
+        destinationDomainId = CCTPForwarder.DOMAIN_ID_CIRCLE_OPTIMISM;
+        initBaseContracts(getChain("optimism").createFork());
+
+        vm.startPrank(randomAddress);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
+        vm.stopPrank();
+
+        vm.expectRevert("CCTPReceiver/invalid-sourceAuthority");
+        relaySourceToDestination();
     }
 
     function test_avalanche() public {

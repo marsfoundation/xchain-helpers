@@ -156,7 +156,6 @@ library ArbitrumBridgeTesting {
         for (uint256 i = 0; i < logs.length; i++) {
             Vm.Log memory log = logs[i];
             (, address target, bytes memory message) = abi.decode(log.data, (address, address, bytes));
-            //l2ToL1Sender = sender;
             (bool success, bytes memory response) = InboxLike(bridge.sourceCrossChainMessenger).bridge().executeCall(target, 0, message);
             if (!success) {
                 assembly {
