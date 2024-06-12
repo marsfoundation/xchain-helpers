@@ -106,7 +106,7 @@ abstract contract IntegrationBaseTest is Test {
         assertEq(moSource.messages(0), 3);
         assertEq(moSource.messages(1), 4);
 
-        // One more message to destination
+        // Do one more message both ways to ensure subsequent calls don't repeat already sent messages
         vm.startPrank(sourceAuthority);
         queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (5)));
         vm.stopPrank();
@@ -115,6 +115,15 @@ abstract contract IntegrationBaseTest is Test {
 
         assertEq(moDestination.length(), 3);
         assertEq(moDestination.messages(2), 5);
+
+        vm.startPrank(destinationAuthority);
+        queueDestinationToSource(abi.encodeCall(MessageOrdering.push, (6)));
+        vm.stopPrank();
+
+        relayDestinationToSource();
+
+        assertEq(moSource.length(), 3);
+        assertEq(moSource.messages(2), 6);
     }
 
     function initSourceReceiver() internal virtual returns (address);

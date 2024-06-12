@@ -3,14 +3,14 @@ pragma solidity >=0.8.0;
 
 contract TargetContractMock {
 
-    uint256 public data;
+    uint256 public count;
 
-    function someFunc() external {
-        data++;
+    function increment() external {
+        count++;
     }
 
     function revertFunc() external pure {
-        revert("error");
+        revert("TargetContract/error");
     }
     
 }

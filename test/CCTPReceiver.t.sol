@@ -49,7 +49,7 @@ contract CCTPReceiverTest is Test {
         receiver.handleReceiveMessage(
             sourceDomainId,
             sourceAuthority,
-            abi.encodeCall(TargetContractMock.someFunc, ())
+            abi.encodeCall(TargetContractMock.increment, ())
         );
     }
 
@@ -59,7 +59,7 @@ contract CCTPReceiverTest is Test {
         receiver.handleReceiveMessage(
             2,
             sourceAuthority,
-            abi.encodeCall(TargetContractMock.someFunc, ())
+            abi.encodeCall(TargetContractMock.increment, ())
         );
     }
 
@@ -69,24 +69,25 @@ contract CCTPReceiverTest is Test {
         receiver.handleReceiveMessage(
             sourceDomainId,
             bytes32(uint256(uint160(randomAddress))),
-            abi.encodeCall(TargetContractMock.someFunc, ())
+            abi.encodeCall(TargetContractMock.increment, ())
         );
     }
 
     function test_handleReceiveMessage_success() public {
-        assertEq(target.data(), 0);
+        assertEq(target.count(), 0);
         vm.prank(destinationMessenger);
-        receiver.handleReceiveMessage(
+        bool result = receiver.handleReceiveMessage(
             sourceDomainId,
             sourceAuthority,
-            abi.encodeCall(TargetContractMock.someFunc, ())
+            abi.encodeCall(TargetContractMock.increment, ())
         );
-        assertEq(target.data(), 1);
+        assertEq(result, true);
+        assertEq(target.count(), 1);
     }
 
     function test_handleReceiveMessage_revert() public {
         vm.prank(destinationMessenger);
-        vm.expectRevert("error");
+        vm.expectRevert("TargetContract/error");
         receiver.handleReceiveMessage(
             sourceDomainId,
             sourceAuthority,

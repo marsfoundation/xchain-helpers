@@ -42,25 +42,25 @@ contract ArbitrumReceiverTest is Test {
     function test_forward_invalidL1Authority() public {
         vm.prank(randomAddress);
         vm.expectRevert("ArbitrumReceiver/invalid-l1Authority");
-        TargetContractMock(address(receiver)).someFunc();
+        TargetContractMock(address(receiver)).increment();
     }
 
     function test_forward_invalidL1AuthoritySourceAuthorityNoOffset() public {
         vm.prank(sourceAuthority);
         vm.expectRevert("ArbitrumReceiver/invalid-l1Authority");
-        TargetContractMock(address(receiver)).someFunc();
+        TargetContractMock(address(receiver)).increment();
     }
 
     function test_forward_success() public {
-        assertEq(target.data(), 0);
+        assertEq(target.count(), 0);
         vm.prank(sourceAuthorityWithOffset);
-        TargetContractMock(address(receiver)).someFunc();
-        assertEq(target.data(), 1);
+        TargetContractMock(address(receiver)).increment();
+        assertEq(target.count(), 1);
     }
 
     function test_forward_revert() public {
         vm.prank(sourceAuthorityWithOffset);
-        vm.expectRevert("error");
+        vm.expectRevert("TargetContract/error");
         TargetContractMock(address(receiver)).revertFunc();
     }
     
