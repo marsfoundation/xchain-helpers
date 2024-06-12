@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 
 import { Vm }        from "forge-std/Vm.sol";
 
-import { Bridge }                from "src/testing/Bridge.sol";
-import { Domain, DomainHelpers } from "src/testing/Domain.sol";
-import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
+import { Bridge }                from "../Bridge.sol";
+import { Domain, DomainHelpers } from "../Domain.sol";
+import { RecordedLogs }          from "../utils/RecordedLogs.sol";
 
 interface IAMB {
     function validatorContract() external view returns (address);
@@ -71,7 +71,7 @@ library AMBBridgeTesting {
         return bridge;
     }
 
-    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
+    function relayMessagesToDestination(Bridge storage bridge, bool switchToDestinationFork) internal {
         bridge.destination.selectFork();
 
         Vm.Log[] memory logs = bridge.ingestAndFilterLogs(true, USER_REQUEST_FOR_AFFIRMATION_TOPIC, USER_REQUEST_FOR_SIGNATURE_TOPIC, bridge.sourceCrossChainMessenger);
@@ -82,7 +82,7 @@ library AMBBridgeTesting {
         }
     }
 
-    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
+    function relayMessagesToSource(Bridge storage bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
 
         Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, USER_REQUEST_FOR_AFFIRMATION_TOPIC, USER_REQUEST_FOR_SIGNATURE_TOPIC, bridge.destinationCrossChainMessenger);

@@ -3,9 +3,9 @@ pragma solidity >=0.8.0;
 
 import { Vm }        from "forge-std/Vm.sol";
 
-import { Bridge }                from "src/testing/Bridge.sol";
-import { Domain, DomainHelpers } from "src/testing/Domain.sol";
-import { RecordedLogs }          from "src/testing/utils/RecordedLogs.sol";
+import { Bridge }                from "../Bridge.sol";
+import { Domain, DomainHelpers } from "../Domain.sol";
+import { RecordedLogs }          from "../utils/RecordedLogs.sol";
 
 interface IMessenger {
     function sendMessage(
@@ -78,7 +78,7 @@ library OptimismBridgeTesting {
         return bridge;
     }
 
-    function relayMessagesToDestination(Bridge memory bridge, bool switchToDestinationFork) internal {
+    function relayMessagesToDestination(Bridge storage bridge, bool switchToDestinationFork) internal {
         bridge.destination.selectFork();
 
         address malias;
@@ -100,7 +100,7 @@ library OptimismBridgeTesting {
         }
     }
 
-    function relayMessagesToSource(Bridge memory bridge, bool switchToSourceFork) internal {
+    function relayMessagesToSource(Bridge storage bridge, bool switchToSourceFork) internal {
         bridge.source.selectFork();
 
         Vm.Log[] memory logs = bridge.ingestAndFilterLogs(false, SENT_MESSAGE_TOPIC, bridge.destinationCrossChainMessenger);

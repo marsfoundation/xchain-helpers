@@ -4,114 +4,97 @@ pragma solidity >=0.8.0;
 import "./IntegrationBase.t.sol";
 
 import { AMBBridgeTesting } from "src/testing/bridges/AMBBridgeTesting.sol";
-
-import { GnosisReceiver } from "src/GnosisReceiver.sol";
-
-interface IAMB {
-    function requireToPassMessage(address, bytes memory, uint256) external returns (bytes32);
-}
-
-contract MessageOrderingGnosis is MessageOrdering, GnosisReceiver {
-
-    constructor(address _l2CrossDomain, uint256 _chainId, address _l1Authority) GnosisReceiver(_l2CrossDomain, _chainId, _l1Authority) {}
-
-    function push(uint256 messageId) public override onlyCrossChainMessage {
-        super.push(messageId);
-    }
-
-}
+import { AMBForwarder }     from "src/forwarders/AMBForwarder.sol";
+import { AMBReceiver }      from "src/receivers/AMBReceiver.sol";
 
 contract GnosisIntegrationTest is IntegrationBaseTest {
     
     using AMBBridgeTesting for *;
     using DomainHelpers    for *;
 
-    function test_gnosisChain() public {
-        checkGnosisStyle(getChain('gnosis_chain').createFork());
-    }
+    function test_invalidSourceAuthority() public {
+        initBaseContracts(getChain("gnosis_chain").createFork());
 
-    function checkGnosisStyle(Domain memory gnosis) public {
-        Bridge memory bridge = AMBBridgeTesting.createGnosisBridge(mainnet, gnosis);
-
-        mainnet.selectFork();
-
-        MessageOrdering moHost = new MessageOrdering();
-        uint256 _chainId = block.chainid;
-
-        gnosis.selectFork();
-
-        MessageOrderingGnosis moGnosis = new MessageOrderingGnosis(bridge.destinationCrossChainMessenger, _chainId, l1Authority);
-
-        // Queue up some L2 -> L1 messages
-        IAMB(bridge.destinationCrossChainMessenger).requireToPassMessage(
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 3),
-            100000
-        );
-       IAMB(bridge.destinationCrossChainMessenger).requireToPassMessage(
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 4),
-            100000
-        );
-
-        assertEq(moGnosis.length(), 0);
-
-        // Do not relay right away
-        mainnet.selectFork();
-
-        // Queue up two more L1 -> L2 messages
-        vm.startPrank(l1Authority);
-        XChainForwarders.sendMessageGnosis(
-            bridge.sourceCrossChainMessenger,
-            address(moGnosis),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 1),
-            100000
-        );
-        XChainForwarders.sendMessageGnosis(
-            bridge.sourceCrossChainMessenger,
-            address(moGnosis),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 2),
-            100000
-        );
-        vm.stopPrank();
-
-        assertEq(moHost.length(), 0);
-
-        bridge.relayMessagesToDestination(true);
-
-        assertEq(moGnosis.length(), 2);
-        assertEq(moGnosis.messages(0), 1);
-        assertEq(moGnosis.messages(1), 2);
-
-        bridge.relayMessagesToSource(true);
-
-        assertEq(moHost.length(), 2);
-        assertEq(moHost.messages(0), 3);
-        assertEq(moHost.messages(1), 4);
-
-        // Validate the message receiver failure modes
-        vm.startPrank(notL1Authority);
-        XChainForwarders.sendMessageGnosis(
-            bridge.sourceCrossChainMessenger,
-            address(moGnosis),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 999),
-            100000
-        );
+        vm.startPrank(randomAddress);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
         vm.stopPrank();
 
         // The revert is caught so it doesn't propagate
         // Just look at the no change to verify it didn't go through
+        relaySourceToDestination();
+        assertEq(moDestination.length(), 0);
+    }
+
+    function test_invalidSender() public {
+        initBaseContracts(getChain("gnosis_chain").createFork());
+
+        destination.selectFork();
+
+        vm.prank(randomAddress);
+        vm.expectRevert("AMBReceiver/invalid-sender");
+        MessageOrdering(destinationReceiver).push(1);
+    }
+
+    function test_invalidSourceChainId() public {
+        initBaseContracts(getChain("gnosis_chain").createFork());
+
+        destination.selectFork();
+        destinationReceiver = address(new AMBReceiver(
+            bridge.destinationCrossChainMessenger,
+            bytes32(uint256(2)),  // Random chain id (not Ethereum)
+            sourceAuthority,
+            address(moDestination)
+        ));
+
+        source.selectFork();
+        vm.startPrank(sourceAuthority);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
+        vm.stopPrank();
+
+        // The revert is caught so it doesn't propagate
+        // Just look at the no change to verify it didn't go through
+        relaySourceToDestination();
+        assertEq(moDestination.length(), 0);
+    }
+
+    function test_gnosisChain() public {
+        runCrossChainTests(getChain('gnosis_chain').createFork());
+    }
+
+    function initSourceReceiver() internal override returns (address) {
+        return address(new AMBReceiver(bridge.sourceCrossChainMessenger, bytes32(uint256(100)), destinationAuthority, address(moSource)));
+    }
+
+    function initDestinationReceiver() internal override returns (address) {
+        return address(new AMBReceiver(bridge.destinationCrossChainMessenger, bytes32(uint256(1)), sourceAuthority, address(moDestination)));
+    }
+
+    function initBridgeTesting() internal override returns (Bridge memory) {
+        return AMBBridgeTesting.createGnosisBridge(source, destination);
+    }
+
+    function queueSourceToDestination(bytes memory message) internal override {
+        AMBForwarder.sendMessageEthereumToGnosisChain(
+            destinationReceiver,
+            message,
+            100000
+        );
+    }
+
+    function queueDestinationToSource(bytes memory message) internal override {
+        AMBForwarder.sendMessageGnosisChainToEthereum(
+            sourceReceiver,
+            message,
+            100000
+        );
+    }
+
+    function relaySourceToDestination() internal override {
         bridge.relayMessagesToDestination(true);
-        assertEq(moGnosis.length(), 2);   // No change
+    }
 
-        gnosis.selectFork();
-        vm.expectRevert("Receiver/invalid-sender");
-        moGnosis.push(999);
-
-        assertEq(moGnosis.l2CrossDomain().messageSourceChainId(), 0);
-        vm.prank(address(moGnosis.l2CrossDomain()));
-        vm.expectRevert("Receiver/invalid-chainId");
-        moGnosis.push(999);
+    function relayDestinationToSource() internal override {
+        bridge.relayMessagesToSource(true);
     }
 
 }

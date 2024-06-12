@@ -3,110 +3,80 @@ pragma solidity >=0.8.0;
 
 import "./IntegrationBase.t.sol";
 
-import { ArbitrumBridgeTesting, ArbSysOverride } from "src/testing/bridges/ArbitrumBridgeTesting.sol";
-
-import { ArbitrumReceiver } from "src/ArbitrumReceiver.sol";
-
-contract MessageOrderingArbitrum is MessageOrdering, ArbitrumReceiver {
-
-    constructor(address _l1Authority) ArbitrumReceiver(_l1Authority) {}
-
-    function push(uint256 messageId) public override onlyCrossChainMessage {
-        super.push(messageId);
-    }
-
-}
+import { ArbitrumBridgeTesting } from "src/testing/bridges/ArbitrumBridgeTesting.sol";
+import { ArbitrumForwarder }     from "src/forwarders/ArbitrumForwarder.sol";
+import { ArbitrumReceiver }      from "src/receivers/ArbitrumReceiver.sol";
 
 contract ArbitrumIntegrationTest is IntegrationBaseTest {
 
     using ArbitrumBridgeTesting for *;
     using DomainHelpers         for *;
 
+    function initBaseContracts(Domain memory _destination) internal override {
+        super.initBaseContracts(_destination);
+
+        // Needed for arbitrum cross-chain messages
+        deal(sourceAuthority, 100 ether);
+        deal(randomAddress,   100 ether);
+    }
+
+    // Use Arbitrum One for failure test as the code logic is the same
+
+    function test_invalidSourceAuthority() public {
+        initBaseContracts(getChain("arbitrum_one").createFork());
+
+        vm.startPrank(randomAddress);
+        queueSourceToDestination(abi.encodeCall(MessageOrdering.push, (1)));
+        vm.stopPrank();
+
+        vm.expectRevert("ArbitrumReceiver/invalid-l1Authority");
+        relaySourceToDestination();
+    }
+
     function test_arbitrumOne() public {
-        checkArbitrumStyle(getChain("arbitrum_one").createFork());
+        runCrossChainTests(getChain("arbitrum_one").createFork());
     }
 
     function test_arbitrumNova() public {
-        checkArbitrumStyle(getChain("arbitrum_nova").createFork());
+        runCrossChainTests(getChain("arbitrum_nova").createFork());
     }
 
-    function checkArbitrumStyle(Domain memory arbitrum) public {
-        Bridge memory bridge = ArbitrumBridgeTesting.createNativeBridge(mainnet, arbitrum);
+    function initSourceReceiver() internal override pure returns (address) {
+        return address(0);
+    }
 
-        deal(l1Authority, 100 ether);
-        deal(notL1Authority, 100 ether);
+    function initDestinationReceiver() internal override returns (address) {
+        return address(new ArbitrumReceiver(sourceAuthority, address(moDestination)));
+    }
 
-        mainnet.selectFork();
+    function initBridgeTesting() internal override returns (Bridge memory) {
+        return ArbitrumBridgeTesting.createNativeBridge(source, destination);
+    }
 
-        MessageOrdering moHost = new MessageOrdering();
-
-        arbitrum.selectFork();
-
-        MessageOrdering moArbitrum = new MessageOrderingArbitrum(l1Authority);
-
-        // Queue up some L2 -> L1 messages
-        ArbSysOverride(bridge.destinationCrossChainMessenger).sendTxToL1(
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 3)
-        );
-        ArbSysOverride(bridge.destinationCrossChainMessenger).sendTxToL1(
-            address(moHost),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 4)
-        );
-
-        assertEq(moArbitrum.length(), 0);
-
-        // Do not relay right away
-        mainnet.selectFork();
-
-        // Queue up two more L1 -> L2 messages
-        vm.startPrank(l1Authority);
-        XChainForwarders.sendMessageArbitrum(
+    function queueSourceToDestination(bytes memory message) internal override {
+        ArbitrumForwarder.sendMessageL1toL2(
             bridge.sourceCrossChainMessenger,
-            address(moArbitrum),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 1),
+            destinationReceiver,
+            message,
             100000,
             1 gwei,
             block.basefee + 10 gwei
         );
-        XChainForwarders.sendMessageArbitrum(
-            bridge.sourceCrossChainMessenger,
-            address(moArbitrum),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 2),
-            100000,
-            1 gwei,
-            block.basefee + 10 gwei
+    }
+
+    function queueDestinationToSource(bytes memory message) internal override {
+        ArbitrumForwarder.sendMessageL2toL1(
+            address(moSource),  // No receiver so send directly to the message ordering contract
+            message
         );
-        vm.stopPrank();
+    }
 
-        assertEq(moHost.length(), 0);
-
+    function relaySourceToDestination() internal override {
         bridge.relayMessagesToDestination(true);
+    }
 
-        assertEq(moArbitrum.length(), 2);
-        assertEq(moArbitrum.messages(0), 1);
-        assertEq(moArbitrum.messages(1), 2);
-
+    function relayDestinationToSource() internal override {
         bridge.relayMessagesToSource(true);
-
-        assertEq(moHost.length(), 2);
-        assertEq(moHost.messages(0), 3);
-        assertEq(moHost.messages(1), 4);
-
-        // Validate the message receiver failure mode
-        vm.startPrank(notL1Authority);
-        XChainForwarders.sendMessageArbitrum(
-            bridge.sourceCrossChainMessenger,
-            address(moArbitrum),
-            abi.encodeWithSelector(MessageOrdering.push.selector, 999),
-            100000,
-            1 gwei,
-            block.basefee + 10 gwei
-        );
-        vm.stopPrank();
-
-        vm.expectRevert("Receiver/invalid-l1Authority");
-        bridge.relayMessagesToDestination(true);
     }
 
 }
