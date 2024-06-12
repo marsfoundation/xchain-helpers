@@ -81,7 +81,7 @@ contract CCTPReceiverTest is Test {
             sourceAuthority,
             abi.encodeCall(TargetContractMock.increment, ())
         );
-        assertEq(result, true);
+        assertEq(result,         true);
         assertEq(target.count(), 1);
     }
 
