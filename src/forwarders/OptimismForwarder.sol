@@ -15,24 +15,24 @@ library OptimismForwarder {
         address l1CrossDomain,
         address target,
         bytes memory message,
-        uint256 gasLimit
+        uint32 gasLimit
     ) internal {
         ICrossDomainOptimism(l1CrossDomain).sendMessage(
             target,
             message,
-            uint32(gasLimit)
+            gasLimit
         );
     }
 
     function sendMessageL2toL1(
         address target,
         bytes memory message,
-        uint256 gasLimit
+        uint32 gasLimit
     ) internal {
         ICrossDomainOptimism(L2_CROSS_DOMAIN).sendMessage(
             target,
             message,
-            uint32(gasLimit)
+            gasLimit
         );
     }
     
