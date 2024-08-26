@@ -63,6 +63,8 @@ library OptimismBridgeTesting {
             sourceCrossChainMessenger = 0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1;
         } else if (name == keccak256("base")) {
             sourceCrossChainMessenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
+        } else if (name == keccak256("world_chain")) {
+            sourceCrossChainMessenger = 0xf931a81D18B1766d15695ffc7c1920a62b7e710a;
         } else {
             revert("Unsupported destination chain");
         }
