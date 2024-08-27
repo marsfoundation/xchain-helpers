@@ -6,6 +6,7 @@ import { Vm }        from "forge-std/Vm.sol";
 import { Bridge }                from "../Bridge.sol";
 import { Domain, DomainHelpers } from "../Domain.sol";
 import { RecordedLogs }          from "../utils/RecordedLogs.sol";
+import { ArbitrumForwarder }     from "../../forwarders/ArbitrumForwarder.sol";
 
 interface InboxLike {
     function createRetryableTicket(
@@ -80,9 +81,9 @@ library ArbitrumBridgeTesting {
 
         bytes32 name = keccak256(bytes(destinationChainAlias));
         if (name == keccak256("arbitrum_one")) {
-            sourceCrossChainMessenger = 0x4Dbd4fc535Ac27206064B68FfCf827b0A60BAB3f;
+            sourceCrossChainMessenger = ArbitrumForwarder.L1_CROSS_DOMAIN_ARBITRUM_ONE;
         } else if (name == keccak256("arbitrum_nova")) {
-            sourceCrossChainMessenger = 0xc4448b71118c9071Bcb9734A0EAc55D18A153949;
+            sourceCrossChainMessenger = ArbitrumForwarder.L1_CROSS_DOMAIN_ARBITRUM_NOVA;
         } else {
             revert("Unsupported destination chain");
         }

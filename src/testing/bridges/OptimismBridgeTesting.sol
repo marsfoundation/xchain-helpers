@@ -6,6 +6,7 @@ import { Vm }        from "forge-std/Vm.sol";
 import { Bridge }                from "../Bridge.sol";
 import { Domain, DomainHelpers } from "../Domain.sol";
 import { RecordedLogs }          from "../utils/RecordedLogs.sol";
+import { OptimismForwarder }     from "../../forwarders/OptimismForwarder.sol";
 
 interface IMessenger {
     function sendMessage(
@@ -60,11 +61,11 @@ library OptimismBridgeTesting {
 
         bytes32 name = keccak256(bytes(destinationChainAlias));
         if (name == keccak256("optimism")) {
-            sourceCrossChainMessenger = 0x25ace71c97B33Cc4729CF772ae268934F7ab5fA1;
+            sourceCrossChainMessenger = OptimismForwarder.L1_CROSS_DOMAIN_OPTIMISM;
         } else if (name == keccak256("base")) {
-            sourceCrossChainMessenger = 0x866E82a600A1414e583f7F13623F1aC5d58b0Afa;
+            sourceCrossChainMessenger = OptimismForwarder.L1_CROSS_DOMAIN_BASE;
         } else if (name == keccak256("world_chain")) {
-            sourceCrossChainMessenger = 0xf931a81D18B1766d15695ffc7c1920a62b7e710a;
+            sourceCrossChainMessenger = OptimismForwarder.L1_CROSS_DOMAIN_WORLD_CHAIN;
         } else {
             revert("Unsupported destination chain");
         }
