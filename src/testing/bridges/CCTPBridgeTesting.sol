@@ -6,6 +6,7 @@ import { Vm }        from "forge-std/Vm.sol";
 import { Bridge }                from "../Bridge.sol";
 import { Domain, DomainHelpers } from "../Domain.sol";
 import { RecordedLogs }          from "../utils/RecordedLogs.sol";
+import { CCTPForwarder }         from "../../forwarders/CCTPForwarder.sol";
 
 interface IMessenger {
     function receiveMessage(bytes calldata message, bytes calldata attestation) external returns (bool success);
@@ -35,17 +36,17 @@ library CCTPBridgeTesting {
     function getCircleMessengerFromChainAlias(string memory chainAlias) internal pure returns (address) {
         bytes32 name = keccak256(bytes(chainAlias));
         if (name == keccak256("mainnet")) {
-            return 0x0a992d191DEeC32aFe36203Ad87D7d289a738F81;
+            return CCTPForwarder.MESSAGE_TRANSMITTER_CIRCLE_ETHEREUM;
         } else if (name == keccak256("avalanche")) {
-            return 0x8186359aF5F57FbB40c6b14A588d2A59C0C29880;
+            return CCTPForwarder.MESSAGE_TRANSMITTER_CIRCLE_AVALANCHE;
         } else if (name == keccak256("optimism")) {
-            return 0x4D41f22c5a0e5c74090899E5a8Fb597a8842b3e8;
+            return CCTPForwarder.MESSAGE_TRANSMITTER_CIRCLE_OPTIMISM;
         } else if (name == keccak256("arbitrum_one")) {
-            return 0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca;
+            return CCTPForwarder.MESSAGE_TRANSMITTER_CIRCLE_ARBITRUM_ONE;
         } else if (name == keccak256("base")) {
-            return 0xAD09780d193884d503182aD4588450C416D6F9D4;
+            return CCTPForwarder.MESSAGE_TRANSMITTER_CIRCLE_BASE;
         } else if (name == keccak256("polygon")) {
-            return 0xF3be9355363857F3e001be68856A2f96b4C39Ba9;
+            return CCTPForwarder.MESSAGE_TRANSMITTER_CIRCLE_POLYGON_POS;
         } else {
             revert("Unsupported chain");
         }
